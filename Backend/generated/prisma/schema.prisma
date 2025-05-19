@@ -1,0 +1,256 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Like {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    Int
+  postId    Int
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId]) // A user can only like a post once
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    Int
+  postId    Int
+  content   String
+  timestamp DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id                     Int                  @id @default(autoincrement())
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  username               String               @unique
+  password               String // Will store the hashed password
+  email                  String               @unique
+  firstName              String
+  lastName               String
+  phoneNumber            String               @unique
+  yearGraduated          Int
+  registrationDate       DateTime             @default(now())
+  approved               Boolean              @default(false) // Indicates if the account is approved by you
+  profilePictureUrl      String? // URL to the user's profile picture
+  cart                   Cart?
+  shippingAddresses      ShippingAddress[]
+  orders                 Order[]
+  directSentMessages     Message[]            @relation("DirectSender")
+  directReceivedMessages Message[]            @relation("DirectReceiver")
+  conversationMembers    ConversationMember[]
+  posts                  Post[]
+  likes                  Like[]
+  comments               Comment[]
+  isAdmin                Boolean              @default(false)
+}
+
+model Conversation {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  name      String? // Optional name for the group chat
+
+  messages Message[]
+  members  ConversationMember[]
+}
+
+model ConversationMember {
+  id             Int      @id @default(autoincrement())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  userId         Int
+  conversationId Int
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, conversationId])
+}
+
+model Message {
+  id               Int               @id @default(autoincrement())
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  senderId         Int
+  content          String? // Text content of the message (optional if sending media)
+  timestamp        DateTime          @default(now())
+  receiverId       Int?
+  conversationId   Int?
+  imageAttachments ImageAttachment[]
+  videoAttachments VideoAttachment[]
+
+  sender       User?         @relation("DirectSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver     User?         @relation("DirectReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+}
+
+model ImageAttachment {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  messageId Int
+  url       String
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+}
+
+model VideoAttachment {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  messageId Int
+  url       String
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+}
+
+model Post {
+  id               Int                   @id @default(autoincrement())
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  authorId         Int
+  content          String? // Text content of the post (optional if sending media)
+  timestamp        DateTime              @default(now())
+  likes            Like[]
+  comments         Comment[]
+  imageAttachments PostImageAttachment[]
+  videoAttachments PostVideoAttachment[]
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+model PostImageAttachment {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  postId    Int
+  url       String
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+}
+
+model PostVideoAttachment {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  postId    Int
+  url       String
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+}
+
+model Product {
+  id          Int            @id @default(autoincrement())
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  name        String
+  description String?
+  price       Float
+  images      ProductImage[]
+  orderItems  OrderItem[]
+  cartItems   CartItem[]
+}
+
+model ProductImage {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  productId Int
+  url       String
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Order {
+  id                Int      @id @default(autoincrement())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  userId            Int
+  shippingAddressId Int?
+  totalAmount       Float
+  orderDate         DateTime @default(now())
+  paymentStatus     String? // e.g., 'pending', 'paid', 'failed'
+  stripeChargeId    String? // ID of the charge in Stripe
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderItems      OrderItem[]
+  shippingAddress ShippingAddress? @relation(fields: [shippingAddressId], references: [id])
+}
+
+model OrderItem {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orderId   Int
+  productId Int
+  quantity  Int
+  price     Float // Price at the time of order
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([orderId, productId])
+}
+
+model ShippingAddress {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    Int
+  street    String
+  city      String
+  state     String
+  zipCode   String
+  country   String
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders Order[]
+}
+
+model Cart {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    Int      @unique
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cartItems CartItem[]
+}
+
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  cartId    Int
+  productId Int
+  quantity  Int
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([cartId, productId])
+}
