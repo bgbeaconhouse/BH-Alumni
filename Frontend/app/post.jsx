@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, FlatList, ActivityIndicator, Image, TextInput } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, FlatList, ActivityIndicator, Image, TextInput, Modal, ScrollView, Dimensions } from 'react-native';
 import { Video } from 'expo-av'; // Import Video component
 import { Link, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -18,6 +18,8 @@ const Post = () => {
   const [currentUserId, setCurrentUserId] = useState(null); // State to hold current user's ID
   const [isDeletingComment, setIsDeletingComment] = useState({}); // Track if a comment is being deleted
   const router = useRouter();
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalImages, setModalImages] = useState([]);
 
   const getToken = async () => {
     return await AsyncStorage.getItem('authToken');
@@ -238,6 +240,16 @@ const Post = () => {
     }
   };
 
+  const openImageModal = (images) => {
+    setModalImages(images.map(img => ({ uri: `http://192.168.0.34:3000/uploads/${img.url}` })));
+    setModalVisible(true);
+  };
+
+  const closeImageModal = () => {
+    setModalVisible(false);
+    setModalImages([]);
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -256,15 +268,8 @@ const Post = () => {
   }
 
   const renderItem = ({ item }) => {
-    let imageSource = null;
-    if (item.imageAttachments && item.imageAttachments.length > 0) {
-      imageSource = { uri: `http://192.168.0.34:3000/uploads/${item.imageAttachments[0].url}` };
-    }
-
-    let videoSource = null;
-    if (item.videoAttachments && item.videoAttachments.length > 0) {
-      videoSource = { uri: `http://192.168.0.34:3000/uploads/${item.videoAttachments[0].url}` };
-    }
+    const imageAttachments = item.imageAttachments || [];
+    const videoAttachments = item.videoAttachments || [];
 
     const postComments = comments[item.id] || [];
     const isCommentsVisible = showComments[item.id];
@@ -279,12 +284,22 @@ const Post = () => {
           {item.author ? `By: ${item.author.name || item.author.username || 'Unknown'}` : 'Unknown Author'}
         </Text>
         {item.content && <Text style={styles.postContent}>{item.content}</Text>}
-        {imageSource && (
-          <Image source={imageSource} style={styles.postImage} />
+        {imageAttachments.length > 0 && (
+          <TouchableOpacity onPress={() => openImageModal(imageAttachments)}>
+            <Image
+              source={{ uri: `http://192.168.0.34:3000/uploads/${imageAttachments[0].url}` }}
+              style={styles.postImage}
+            />
+            {imageAttachments.length > 1 && (
+              <View style={styles.multipleImagesOverlay}>
+                <Text style={styles.multipleImagesText}>{`+${imageAttachments.length - 1}`}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         )}
-        {videoSource && (
+        {videoAttachments.length > 0 && (
           <Video
-            source={{ uri: videoSource.uri }}
+            source={{ uri: `http://192.168.0.34:3000/uploads/${videoAttachments[0].url}` }}
             style={styles.postVideo}
             controls={true}
             resizeMode="cover"
@@ -407,6 +422,30 @@ const Post = () => {
       <TouchableOpacity style={styles.createPostButton} onPress={() => router.push('/createPosts')}>
         <Text style={styles.createPostButtonText}>Create Post</Text>
       </TouchableOpacity>
+
+<Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={closeImageModal}
+    >
+        <View style={styles.modalContainer}>
+            <ScrollView
+                style={styles.modalScrollView}
+                horizontal
+                pagingEnabled
+            >
+               {modalImages.map((image, index) => (
+                    <View key={index} style={styles.modalPage}>
+                        <Image source={{ uri: image.uri }} style={styles.modalImage} resizeMode="contain" />
+                    </View>
+                ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.closeButton} onPress={closeImageModal}>
+                <Text style={styles.closeButtonText}>Close</Text>
+            </TouchableOpacity>
+        </View>
+    </Modal>
     </View>
   );
 };
@@ -615,5 +654,51 @@ const styles = StyleSheet.create({
     color: 'white',
     textAlign: 'center',
     fontWeight: 'bold',
+  },
+  multipleImagesOverlay: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  multipleImagesText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+ modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.9)',
+  },
+  modalScrollView: {
+    width: '100%',
+    height: '80%',
+  },
+  modalPage: {
+    width: Dimensions.get('window').width, // Each page takes the full screen width
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalImage: {
+    width: '90%',
+    height: '90%',
+    resizeMode: 'contain',
+  },
+  closeButton: {
+    position: 'absolute',
+    bottom: 20,
+    padding: 10,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 5,
+  },
+  closeButtonText: {
+    color: 'white',
+    fontSize: 16,
   },
 });
