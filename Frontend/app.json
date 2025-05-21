@@ -3,6 +3,7 @@
     "name": "Frontend",
     "slug": "Frontend",
     "version": "1.0.0",
+    "scheme": "bhalumni",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
