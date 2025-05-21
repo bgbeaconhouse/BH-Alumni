@@ -3,6 +3,56 @@ import { StyleSheet, Text, View, TouchableOpacity, FlatList, ActivityIndicator, 
 import { Video } from 'expo-av'; // Import Video component
 import { Link, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Feather } from '@expo/vector-icons'; // For the play icon
+
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
+const PostVideo = ({ videoUrl, thumbnailUrl }) => {
+  const [modalVisible, setModalVisible] = useState(false);
+
+  const openModal = () => {
+    setModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+  };
+
+  return (
+    <View>
+      <TouchableOpacity onPress={openModal} style={styles.videoPlaceholder}>
+        {thumbnailUrl ? (
+          <Image source={{ uri: thumbnailUrl }} style={styles.thumbnail} resizeMode="cover" />
+        ) : (
+          <View style={styles.noThumbnailPlaceholder} />
+        )}
+        <View style={styles.playIconContainer}>
+          <Feather name="play-circle" size={48} color="white" />
+        </View>
+      </TouchableOpacity>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={closeModal}
+      >
+        <View style={styles.modalContainer}>
+          <Video
+            source={{ uri: videoUrl }}
+            style={styles.modalVideo}
+            controls={true}
+            resizeMode="contain"
+            shouldPlay
+          />
+          <TouchableOpacity style={styles.closeButton} onPress={closeModal}>
+            <Text style={styles.closeButtonText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+    </View>
+  );
+};
 
 const Post = () => {
   const [posts, setPosts] = useState([]);
@@ -298,13 +348,9 @@ const Post = () => {
           </TouchableOpacity>
         )}
         {videoAttachments.length > 0 && (
-          <Video
-            source={{ uri: `http://192.168.0.34:3000/uploads/${videoAttachments[0].url}` }}
-            style={styles.postVideo}
-            controls={true}
-            resizeMode="cover"
-            isLooping
-            shouldPlay={false} // Prevent autoplay
+          <PostVideo
+            videoUrl={`http://192.168.0.34:3000/uploads/${videoAttachments[0].url}`}
+            thumbnailUrl={videoAttachments[0].thumbnailUrl ? `http://192.168.0.34:3000/uploads/${videoAttachments[0].thumbnailUrl}` : null}
           />
         )}
         <View style={styles.interactions}>
@@ -386,7 +432,7 @@ const Post = () => {
 
   const onRefresh = () => {
     fetchPosts();
-    getUserId(); // Refresh user ID as well
+    getUserId();
   };
 
   return (
@@ -417,40 +463,38 @@ const Post = () => {
             <Text style={styles.guidelineItem}>3. Contact <Text style={styles.emailLink}>bgbeaconhouse@gmail.com</Text> for any direct concerns or inquiries.</Text>
           </View>
         )}
-        ListFooterComponentStyle={{ marginBottom: 12 }} // Add some margin below the guidelines
+        ListFooterComponentStyle={{ marginBottom: 12 }}
       />
       <TouchableOpacity style={styles.createPostButton} onPress={() => router.push('/createPosts')}>
         <Text style={styles.createPostButtonText}>Create Post</Text>
       </TouchableOpacity>
 
-<Modal
+      <Modal
         animationType="slide"
         transparent={true}
         visible={modalVisible}
         onRequestClose={closeImageModal}
-    >
+      >
         <View style={styles.modalContainer}>
-            <ScrollView
-                style={styles.modalScrollView}
-                horizontal
-                pagingEnabled
-            >
-               {modalImages.map((image, index) => (
-                    <View key={index} style={styles.modalPage}>
-                        <Image source={{ uri: image.uri }} style={styles.modalImage} resizeMode="contain" />
-                    </View>
-                ))}
-            </ScrollView>
-            <TouchableOpacity style={styles.closeButton} onPress={closeImageModal}>
-                <Text style={styles.closeButtonText}>Close</Text>
-            </TouchableOpacity>
+          <ScrollView
+            style={styles.modalScrollView}
+            horizontal
+            pagingEnabled
+          >
+            {modalImages.map((image, index) => (
+              <View key={index} style={styles.modalPage}>
+                <Image source={{ uri: image.uri }} style={styles.modalImage} resizeMode="contain" />
+              </View>
+            ))}
+          </ScrollView>
+          <TouchableOpacity style={styles.closeButton} onPress={closeImageModal}>
+            <Text style={styles.closeButtonText}>Close</Text>
+          </TouchableOpacity>
         </View>
-    </Modal>
+      </Modal>
     </View>
   );
 };
-
-export default Post;
 
 const styles = StyleSheet.create({
   container: {
@@ -501,11 +545,39 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 8,
   },
-  postVideo: {
+  videoPlaceholder: {
+    backgroundColor: '#f0f0f0',
+    height: 200,
     width: '100%',
-    height: 300, // Adjust as needed
+    justifyContent: 'center',
+    alignItems: 'center',
     borderRadius: 8,
     marginTop: 8,
+    overflow: 'hidden',
+  },
+  thumbnail: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+  },
+  noThumbnailPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#ccc',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playIconContainer: {
+    position: 'absolute',
+    justifyContent: 'center',
+    alignItems: 'center',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.3)', // Semi-transparent background for better icon visibility
   },
   commentsButton: {
     backgroundColor: '#e0e0e0',
@@ -669,18 +741,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
- modalContainer: {
+  modalContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.9)',
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+  },
+  modalVideo: {
+    width: screenWidth * 0.9,
+    height: screenHeight * 0.6,
+  },
+  closeButton: {
+    position: 'absolute',
+    bottom: 20,
+    padding: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 5,
+  },
+  closeButtonText: {
+    color: 'white',
+    fontSize: 16,
   },
   modalScrollView: {
     width: '100%',
     height: '80%',
   },
   modalPage: {
-    width: Dimensions.get('window').width, // Each page takes the full screen width
+    width: screenWidth, // Each page takes the full screen width
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
@@ -690,15 +777,40 @@ const styles = StyleSheet.create({
     height: '90%',
     resizeMode: 'contain',
   },
-  closeButton: {
-    position: 'absolute',
-    bottom: 20,
-    padding: 10,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 5,
+  videoPlaceholder: { // Re-define here to ensure it's after other style definitions
+    backgroundColor: '#f0f0f0',
+    height: 200,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+    marginTop: 8,
+    overflow: 'hidden',
   },
-  closeButtonText: {
-    color: 'white',
-    fontSize: 16,
+  thumbnail: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+  },
+  noThumbnailPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#ccc',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playIconContainer: {
+    position: 'absolute',
+    justifyContent: 'center',
+    alignItems: 'center',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.3)',
   },
 });
+
+export default Post;
