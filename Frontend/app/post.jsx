@@ -331,7 +331,7 @@ const Post = () => {
     return (
       <View style={styles.postItem}>
         <Text style={styles.authorName}>
-          {item.author ? `By: ${item.author.name || item.author.username || 'Unknown'}` : 'Unknown Author'}
+          {item.author ? `${item.author.firstName} ${item.author.lastName || ''}` : 'Unknown Author'}
         </Text>
         {item.content && <Text style={styles.postContent}>{item.content}</Text>}
         {imageAttachments.length > 0 && (
@@ -339,6 +339,7 @@ const Post = () => {
             <Image
               source={{ uri: `http://192.168.0.34:3000/uploads/${imageAttachments[0].url}` }}
               style={styles.postImage}
+              resizeMode="cover"
             />
             {imageAttachments.length > 1 && (
               <View style={styles.multipleImagesOverlay}>
@@ -384,7 +385,7 @@ const Post = () => {
               postComments.map((comment) => (
                 <View key={comment.id} style={styles.commentItem}>
                   <Text style={styles.commentAuthor}>
-                    {comment.user ? `${comment.user.username}:` : 'Unknown User:'}
+                    {comment.user ? `${comment.user.firstName} ${comment.user.lastName || ''}:` : 'Unknown User:'}
                   </Text>
                   <Text style={styles.commentContent}>{comment.content}</Text>
                   {comment.userId === currentUserId && (
@@ -444,8 +445,8 @@ const Post = () => {
           </Link>
         </TouchableOpacity>
         <Text style={styles.header}>Posts</Text>
-        <TouchableOpacity style={styles.headerButton} onPress={() => router.push('/profile')}>
-          <Text style={styles.headerButtonText}>My Profile</Text>
+        <TouchableOpacity style={styles.headerButton} onPress={() => router.push('/support')}>
+          <Text style={styles.headerButtonText}>Support</Text>
         </TouchableOpacity>
       </View>
       <FlatList

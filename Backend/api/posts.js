@@ -35,7 +35,7 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
     storage: storage,
     fileFilter: fileFilter,
-    limits: { fileSize: 10 * 1024 * 1024 } // Optional: limit file size to 10MB
+    limits: { fileSize: 100 * 1024 * 1024 } // Optional: limit file size to 10MB
 }).array('media', 10); // 'media' is the field name for files in the form-data
 
 router.post("/", verifyToken, upload, async (req, res, next) => {

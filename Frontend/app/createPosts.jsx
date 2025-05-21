@@ -9,6 +9,7 @@ const CreatePosts = () => {
   const [content, setContent] = useState('');
   const [authToken, setAuthToken] = useState(null);
   const [media, setMedia] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const getToken = async () => {
@@ -64,6 +65,8 @@ const CreatePosts = () => {
       return;
     }
 
+    setIsSubmitting(true); // Set submitting state to true
+
     try {
       const apiUrl = 'http://192.168.0.34:3000/api/posts'; // Ensure this is the correct endpoint
       const formData = new FormData();
@@ -103,6 +106,8 @@ const CreatePosts = () => {
     } catch (error) {
       console.error('Error submitting post:', error);
       showAlert('Error submitting post.');
+    } finally {
+      setIsSubmitting(false); // Set submitting state back to false
     }
   };
 
@@ -140,8 +145,14 @@ const CreatePosts = () => {
           </View>
         )}
 
-        <TouchableOpacity style={styles.createButton} onPress={handleSubmit}>
-          <Text style={styles.createButtonText}>Create Post</Text>
+        <TouchableOpacity
+          style={styles.createButton}
+          onPress={handleSubmit}
+          disabled={isSubmitting}
+        >
+          <Text style={styles.createButtonText}>
+            {isSubmitting ? 'Creating Post...' : 'Create Post'}
+          </Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
