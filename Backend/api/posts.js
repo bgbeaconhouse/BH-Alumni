@@ -299,4 +299,76 @@ router.delete("/comments/:commentId", verifyToken, async (req, res, next) => {
         next(error);
     }
 });
+
+// NEW: DELETE endpoint to delete a post
+router.delete("/:postId", verifyToken, async (req, res, next) => {
+    const { postId } = req.params;
+    const userId = req.userId; // Get userId from the verifyToken middleware
+
+    try {
+        // 1. Find the post and include its attachments
+        const post = await prisma.post.findUnique({
+            where: { id: parseInt(postId) },
+            include: {
+                imageAttachments: true,
+                videoAttachments: true,
+            },
+        });
+
+        // 2. Check if the post exists
+        if (!post) {
+            return res.status(404).json({ error: "Post not found." });
+        }
+
+        // 3. Check if the authenticated user is the author of the post
+        if (post.authorId !== userId) {
+            return res.status(403).json({ error: "You are not authorized to delete this post." });
+        }
+
+        // 4. Delete associated media files from the 'uploads' directory
+        const uploadDir = path.join(__dirname, '..', 'uploads'); // Assuming 'uploads' is in the parent directory of 'routes'
+        if (post.imageAttachments) {
+            for (const attachment of post.imageAttachments) {
+                const filePath = path.join(uploadDir, attachment.url);
+                try {
+                    await fs.unlink(filePath); // Delete the file
+                    console.log(`Deleted file: ${filePath}`);
+                } catch (fileError) {
+                    // Log the error but don't stop the deletion process for other files/post
+                    console.error(`Error deleting file ${filePath}:`, fileError);
+                }
+            }
+        }
+        if (post.videoAttachments) {
+            for (const attachment of post.videoAttachments) {
+                const filePath = path.join(uploadDir, attachment.url);
+                try {
+                    await fs.unlink(filePath); // Delete the file
+                    console.log(`Deleted file: ${filePath}`);
+                } catch (fileError) {
+                    console.error(`Error deleting file ${filePath}:`, fileError);
+                }
+            }
+        }
+
+        // 5. Delete the post (Prisma will handle cascading deletes for attachments, likes, and comments if configured)
+        // Ensure your Prisma schema has `onDelete: Cascade` for relationships if you want Prisma to handle this automatically.
+        // For example:
+        // model PostImageAttachment {
+        //   id     Int    @id @default(autoincrement())
+        //   url    String
+        //   postId Int
+        //   post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+        // }
+        await prisma.post.delete({
+            where: { id: parseInt(postId) },
+        });
+
+        res.status(200).json({ message: "Post deleted successfully." });
+
+    } catch (error) {
+        console.error("Error deleting post:", error);
+        next(error); // Pass error to the next middleware (error handler)
+    }
+});
 module.exports = router;
