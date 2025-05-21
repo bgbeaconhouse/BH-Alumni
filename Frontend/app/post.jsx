@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, FlatList, ActivityIndicator, Image, TextInput } from 'react-native';
+import { Video } from 'expo-av'; // Import Video component
 import { Link, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -259,6 +260,12 @@ const Post = () => {
     if (item.imageAttachments && item.imageAttachments.length > 0) {
       imageSource = { uri: `http://192.168.0.34:3000/uploads/${item.imageAttachments[0].url}` };
     }
+
+    let videoSource = null;
+    if (item.videoAttachments && item.videoAttachments.length > 0) {
+      videoSource = { uri: `http://192.168.0.34:3000/uploads/${item.videoAttachments[0].url}` };
+    }
+
     const postComments = comments[item.id] || [];
     const isCommentsVisible = showComments[item.id];
     const likeCount = likes[item.id] || 0;
@@ -274,6 +281,16 @@ const Post = () => {
         {item.content && <Text style={styles.postContent}>{item.content}</Text>}
         {imageSource && (
           <Image source={imageSource} style={styles.postImage} />
+        )}
+        {videoSource && (
+          <Video
+            source={{ uri: videoSource.uri }}
+            style={styles.postVideo}
+            controls={true}
+            resizeMode="cover"
+            isLooping
+            shouldPlay={false} // Prevent autoplay
+          />
         )}
         <View style={styles.interactions}>
           <TouchableOpacity
@@ -442,6 +459,12 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 200,
     resizeMode: 'cover',
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  postVideo: {
+    width: '100%',
+    height: 300, // Adjust as needed
     borderRadius: 8,
     marginTop: 8,
   },

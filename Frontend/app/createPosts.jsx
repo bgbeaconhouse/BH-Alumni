@@ -1,12 +1,14 @@
-import { StyleSheet, Text, View, TouchableOpacity, TextInput, Button } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, TextInput, Button, ScrollView } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 
 const CreatePosts = () => {
   const router = useRouter();
   const [content, setContent] = useState('');
   const [authToken, setAuthToken] = useState(null);
+  const [media, setMedia] = useState([]);
 
   useEffect(() => {
     const getToken = async () => {
@@ -27,28 +29,64 @@ const CreatePosts = () => {
     getToken();
   }, [router]);
 
+  const pickMedia = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      allowsMultipleSelection: true,
+      quality: 0.7,
+    });
+
+    if (!result.canceled && result.assets) {
+      setMedia(prevMedia => [...prevMedia, ...result.assets]);
+      console.log('Selected media:', result.assets);
+    }
+  };
+
+  // Custom alert function to replace native alert
+  const showAlert = (message) => {
+    // In a real React Native app, you'd use a custom modal or a library
+    // like 'react-native-modal' or 'react-native-popup-dialog' for alerts.
+    // For this example, we'll log to console and assume a visual component
+    // would display this message.
+    console.warn("App Alert:", message);
+    // You might set a state variable here to control a custom modal's visibility and message
+  };
+
   const handleSubmit = async () => {
-    if (!content.trim()) {
-      alert('Post content cannot be empty.');
+    if (!content.trim() && media.length === 0) {
+      showAlert('Post content or media must be provided.');
       return;
     }
 
     if (!authToken) {
-      alert('Authentication token not available. Please log in.');
+      showAlert('Authentication token not available. Please log in.');
       router.replace('/login');
       return;
     }
 
     try {
       const apiUrl = 'http://192.168.0.34:3000/api/posts'; // Ensure this is the correct endpoint
+      const formData = new FormData();
+
+      formData.append('content', content);
+
+      media.forEach((item) => {
+        const uriParts = item.uri.split('.');
+        const fileType = uriParts[uriParts.length - 1];
+        formData.append('media', {
+          uri: item.uri,
+          name: `media-${Date.now()}.${fileType}`,
+          type: item.type === 'image' ? `image/${fileType}` : `video/${fileType}`,
+        });
+      });
 
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          // 'Content-Type': 'multipart/form-data', // FormData sets this automatically with correct boundary
           'Authorization': `Bearer ${authToken}`,
         },
-        body: JSON.stringify({ content }),
+        body: formData,
       });
 
       const responseData = await response.json();
@@ -56,96 +94,171 @@ const CreatePosts = () => {
       if (response.ok) {
         console.log('Post created successfully:', responseData);
         setContent('');
+        setMedia([]);
         router.push('/post');
       } else {
         console.error('Failed to create post:', responseData);
-        alert(`Failed to create post: ${responseData.error || 'Something went wrong'}`);
+        showAlert(`Failed to create post: ${responseData.error || 'Something went wrong'}`);
       }
     } catch (error) {
       console.error('Error submitting post:', error);
-      alert('Error submitting post.');
+      showAlert('Error submitting post.');
     }
   };
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity style={styles.backButton} onPress={() => router.push('/post')}>
-        <Text style={styles.backButtonText}>Back</Text>
-      </TouchableOpacity>
+    <ScrollView contentContainerStyle={styles.scrollViewContent}>
+      <View style={styles.container}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.push('/post')}>
+          <Text style={styles.backButtonText}>Back</Text>
+        </TouchableOpacity>
 
-      <Text style={styles.title}>Create New Post</Text>
+        <Text style={styles.title}>Create New Post</Text>
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Content:</Text>
-        <TextInput
-          style={[styles.input, styles.multilineInput]}
-          placeholder="Enter content"
-          multiline
-          numberOfLines={4}
-          value={content}
-          onChangeText={setContent}
-        />
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Content:</Text>
+          <TextInput
+            style={[styles.input, styles.multilineInput]}
+            placeholder="Enter content"
+            multiline
+            numberOfLines={4}
+            value={content}
+            onChangeText={setContent}
+          />
+        </View>
+
+        <TouchableOpacity style={styles.uploadButton} onPress={pickMedia}>
+          <Text style={styles.uploadButtonText}>Upload Media</Text>
+        </TouchableOpacity>
+
+        {media.length > 0 && (
+          <View style={styles.mediaPreview}>
+            <Text style={styles.label}>Selected Media:</Text>
+            {media.map((item, index) => (
+              <Text key={index} style={styles.mediaItemText}>{item.uri.substring(item.uri.lastIndexOf('/') + 1)}</Text>
+            ))}
+          </View>
+        )}
+
+        <TouchableOpacity style={styles.createButton} onPress={handleSubmit}>
+          <Text style={styles.createButtonText}>Create Post</Text>
+        </TouchableOpacity>
       </View>
-
-      <TouchableOpacity style={styles.createButton} onPress={handleSubmit}>
-        <Text style={styles.createButtonText}>Create Post</Text>
-      </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 };
 
 export default CreatePosts;
 
 const styles = StyleSheet.create({
+  scrollViewContent: {
+    flexGrow: 1, // Allows content to grow and enable scrolling
+  },
   container: {
     flex: 1,
     padding: 20,
+    backgroundColor: '#f8f8f8', // Added a light background for better contrast
   },
   backButton: {
-    backgroundColor: 'lightgray',
-    padding: 10,
-    borderRadius: 5,
+    backgroundColor: '#e0e0e0',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 8,
     width: 80,
     alignItems: 'center',
     marginBottom: 20,
+    shadowColor: '#000', // Added shadow for a subtle lift
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
   backButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
+    color: '#333',
   },
   title: {
-    fontSize: 24,
+    fontSize: 28, // Increased font size for title
     fontWeight: 'bold',
-    marginBottom: 20,
+    color: '#333',
+    marginBottom: 25,
+    textAlign: 'center',
   },
   inputContainer: {
-    marginBottom: 15,
+    marginBottom: 20,
   },
   label: {
     fontSize: 16,
-    marginBottom: 5,
+    marginBottom: 8,
     fontWeight: 'bold',
+    color: '#555',
   },
   input: {
     borderWidth: 1,
-    borderColor: 'gray',
-    borderRadius: 5,
-    padding: 10,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
     fontSize: 16,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   multilineInput: {
-    minHeight: 100,
+    minHeight: 120, // Increased minHeight for better input area
     textAlignVertical: 'top',
   },
-  createButton: {
-    backgroundColor: 'lightblue',
-    padding: 15,
-    borderRadius: 5,
+  uploadButton: {
+    backgroundColor: '#FF9800', // Orange color
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 8,
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 10,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  uploadButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  mediaPreview: {
+    marginTop: 15,
+    padding: 10,
+    backgroundColor: '#e9e9e9',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  mediaItemText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
+  },
+  createButton: {
+    backgroundColor: '#2196F3', // Blue color
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
   },
   createButtonText: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: 'white',
   },
 });
