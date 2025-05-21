@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, TouchableOpacity, TextInput, Button, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, TextInput, Button, ScrollView, ActivityIndicator } from 'react-native';
 import { useState, useEffect } from 'react';
 import { Link, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -10,6 +10,7 @@ const CreatePosts = () => {
   const [authToken, setAuthToken] = useState(null);
   const [media, setMedia] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false); // New state
 
   useEffect(() => {
     const getToken = async () => {
@@ -31,6 +32,7 @@ const CreatePosts = () => {
   }, [router]);
 
   const pickMedia = async () => {
+    setIsUploadingMedia(true); // Start of upload
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.All,
       allowsMultipleSelection: true,
@@ -41,6 +43,7 @@ const CreatePosts = () => {
       setMedia(prevMedia => [...prevMedia, ...result.assets]);
       console.log('Selected media:', result.assets);
     }
+    setIsUploadingMedia(false); // End of upload
   };
 
   // Custom alert function to replace native alert
@@ -132,8 +135,11 @@ const CreatePosts = () => {
           />
         </View>
 
-        <TouchableOpacity style={styles.uploadButton} onPress={pickMedia}>
-          <Text style={styles.uploadButtonText}>Upload Media</Text>
+        <TouchableOpacity style={styles.uploadButton} onPress={pickMedia} disabled={isUploadingMedia}>
+          <Text style={styles.uploadButtonText}>
+            {isUploadingMedia ? 'Uploading Media...' : 'Upload Media'}
+          </Text>
+          {isUploadingMedia && <ActivityIndicator style={{ marginLeft: 10 }} color="white" />}
         </TouchableOpacity>
 
         {media.length > 0 && (
@@ -235,6 +241,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 5,
+    flexDirection: 'row', // To align text and activity indicator
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   uploadButtonText: {
     fontSize: 18,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, FlatList, ActivityIndicator, Image, TextInput, Modal, ScrollView, Dimensions } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, FlatList, ActivityIndicator, Image, TextInput, Modal, ScrollView, Dimensions, Alert } from 'react-native';
 import { Video } from 'expo-av'; // Import Video component
 import { Link, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -67,6 +67,7 @@ const Post = () => {
   const [isSubmittingComment, setIsSubmittingComment] = useState({}); // Track if comment is being submitted
   const [currentUserId, setCurrentUserId] = useState(null); // State to hold current user's ID
   const [isDeletingComment, setIsDeletingComment] = useState({}); // Track if a comment is being deleted
+  const [isDeletingPost, setIsDeletingPost] = useState({}); // Track if a post is being deleted
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
   const [modalImages, setModalImages] = useState([]);
@@ -251,43 +252,111 @@ const Post = () => {
   };
 
   const handleDeleteComment = async (postId, commentId) => {
-    const token = await getToken();
-    if (!token) {
-      console.warn("User not authenticated, cannot delete comment.");
-      return;
-    }
-
-    setIsDeletingComment((prev) => ({ ...prev, [commentId]: true }));
-
-    try {
-      const response = await fetch(`http://192.168.0.34:3000/api/posts/comments/${commentId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
+    Alert.alert(
+      "Delete Comment",
+      "Are you sure you want to delete this comment?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
         },
-      });
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            const token = await getToken();
+            if (!token) {
+              console.warn("User not authenticated, cannot delete comment.");
+              return;
+            }
 
-      if (response.ok) {
-        // Update the comments state to remove the deleted comment
-        setComments((prevComments) => {
-          const updatedComments = { ...prevComments };
-          if (updatedComments[postId]) {
-            updatedComments[postId] = updatedComments[postId].filter((comment) => comment.id !== commentId);
-          }
-          return updatedComments;
-        });
-      } else {
-        console.error("Failed to delete comment");
-        const errorData = await response.json();
-        console.error(errorData);
-        alert('Failed to delete comment.');
-      }
-    } catch (error) {
-      console.error("Error deleting comment:", error);
-      alert('Error deleting comment.');
-    } finally {
-      setIsDeletingComment((prev) => ({ ...prev, [commentId]: false }));
-    }
+            setIsDeletingComment((prev) => ({ ...prev, [commentId]: true }));
+
+            try {
+              const response = await fetch(`http://192.168.0.34:3000/api/posts/comments/${commentId}`, {
+                method: 'DELETE',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                },
+              });
+
+              if (response.ok) {
+                // Update the comments state to remove the deleted comment
+                setComments((prevComments) => {
+                  const updatedComments = { ...prevComments };
+                  if (updatedComments[postId]) {
+                    updatedComments[postId] = updatedComments[postId].filter((comment) => comment.id !== commentId);
+                  }
+                  return updatedComments;
+                });
+              } else {
+                console.error("Failed to delete comment");
+                const errorData = await response.json();
+                console.error(errorData);
+                alert('Failed to delete comment.');
+              }
+            } catch (error) {
+              console.error("Error deleting comment:", error);
+              alert('Error deleting comment.');
+            } finally {
+              setIsDeletingComment((prev) => ({ ...prev, [commentId]: false }));
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeletePost = async (postId) => {
+    Alert.alert(
+      "Delete Post",
+      "Are you sure you want to delete this post?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            const token = await getToken();
+            if (!token) {
+              console.warn("User not authenticated, cannot delete post.");
+              return;
+            }
+
+            setIsDeletingPost((prev) => ({ ...prev, [postId]: true }));
+
+            try {
+              const response = await fetch(`http://192.168.0.34:3000/api/posts/${postId}`, {
+                method: 'DELETE',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                },
+              });
+
+              if (response.ok) {
+                // Update the posts state to remove the deleted post
+                setPosts(prevPosts => prevPosts.filter(post => post.id !== postId));
+                // Optionally, you might want to refetch all posts to ensure consistency
+                // fetchPosts();
+              } else {
+                console.error("Failed to delete post");
+                const errorData = await response.json();
+                console.error(errorData);
+                alert('Failed to delete post.');
+              }
+            } catch (error) {
+              console.error("Error deleting post:", error);
+              alert('Error deleting post.');
+            } finally {
+              setIsDeletingPost((prev) => ({ ...prev, [postId]: false }));
+            }
+          },
+        },
+      ]
+    );
   };
 
   const openImageModal = (images) => {
@@ -320,19 +389,35 @@ const Post = () => {
   const renderItem = ({ item }) => {
     const imageAttachments = item.imageAttachments || [];
     const videoAttachments = item.videoAttachments || [];
-
     const postComments = comments[item.id] || [];
     const isCommentsVisible = showComments[item.id];
     const likeCount = likes[item.id] || 0;
     const isLikedByUser = userLikedPosts[item.id] || false;
     const commentInputText = newCommentText[item.id] || '';
     const submitting = isSubmittingComment[item.id] || false;
+    const deletingPost = isDeletingPost[item.id] || false;
+    const isOwnPost = currentUserId === item.authorId;
 
     return (
       <View style={styles.postItem}>
-        <Text style={styles.authorName}>
-          {item.author ? `${item.author.firstName} ${item.author.lastName || ''}` : 'Unknown Author'}
-        </Text>
+        <View style={styles.postHeader}>
+          <Text style={styles.authorName}>
+            {item.author ? `${item.author.firstName} ${item.author.lastName || ''}` : 'Unknown Author'}
+          </Text>
+          {isOwnPost && (
+            <TouchableOpacity
+              onPress={() => handleDeletePost(item.id)}
+              style={styles.deletePostButton}
+              disabled={deletingPost}
+            >
+              {deletingPost ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.deleteIcon}>-</Text>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
         {item.content && <Text style={styles.postContent}>{item.content}</Text>}
         {imageAttachments.length > 0 && (
           <TouchableOpacity onPress={() => openImageModal(imageAttachments)}>
@@ -385,8 +470,7 @@ const Post = () => {
               postComments.map((comment) => (
                 <View key={comment.id} style={styles.commentItem}>
                   <Text style={styles.commentAuthor}>
-                    {comment.user ? `${comment.user.firstName} ${comment.user.lastName || ''}:` : 'Unknown User:'}
-                  </Text>
+                    {comment.user ? `${comment.user.firstName} ${comment.user.lastName || ''}:` : 'Unknown User:'}</Text>
                   <Text style={styles.commentContent}>{comment.content}</Text>
                   {comment.userId === currentUserId && (
                     <TouchableOpacity
@@ -395,7 +479,7 @@ const Post = () => {
                       disabled={isDeletingComment[comment.id]}
                     >
                       <Text style={styles.deleteButtonText}>
-                        {isDeletingComment[comment.id] ? 'Deleting...' : 'Delete'}
+                        {isDeletingComment[comment.id] ? 'Deleting...' : '-'}
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -530,10 +614,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
   },
+  postHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   authorName: {
     fontSize: 12,
     color: 'gray',
     marginBottom: 4,
+    flexShrink: 1,
   },
   postContent: {
     fontSize: 16,
@@ -679,14 +770,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   deleteButton: {
-    backgroundColor: '#ff6347',
-    paddingVertical: 5,
-    paddingHorizontal: 8,
-    borderRadius: 3,
+    backgroundColor: '#ff6347', // Red background
+    // paddingVertical: 1,       // Adjust vertical padding as needed
+    paddingHorizontal: 10,      // Adjust horizontal padding as needed
+    borderRadius: 5,          // Optional: Add some rounding
   },
   deleteButtonText: {
-    color: 'white',
-    fontSize: 12,
+    color: 'white',           // White dash
+    fontSize: 24,
     fontWeight: 'bold',
   },
   guidelinesContainer: {
@@ -778,39 +869,18 @@ const styles = StyleSheet.create({
     height: '90%',
     resizeMode: 'contain',
   },
-  videoPlaceholder: { // Re-define here to ensure it's after other style definitions
-    backgroundColor: '#f0f0f0',
-    height: 200,
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 8,
-    marginTop: 8,
-    overflow: 'hidden',
-  },
-  thumbnail: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-  },
-  noThumbnailPlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#ccc',
+  deletePostButton: {
+    backgroundColor: '#d9534f',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  playIconContainer: {
-    position: 'absolute',
-    justifyContent: 'center',
-    alignItems: 'center',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+  deleteIcon: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 
