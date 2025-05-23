@@ -38,6 +38,65 @@ const upload = multer({
     limits: { fileSize: 100 * 1024 * 1024 } // Optional: limit file size to 10MB
 }).array('media', 10); // 'media' is the field name for files
 
+// Get all conversations of user
+
+router.get("/", verifyToken, async (req, res, next) => {
+  try {
+    const conversations = await prisma.conversationMember.findMany({
+      where: {
+        userId: req.userId,
+      },
+      include: {
+        conversation: {
+          include: {
+            members: {
+              include: {
+                user: {
+                  select: { id: true, username: true, firstName: true, lastName: true, profilePictureUrl: true },
+                },
+              },
+            },
+            messages: {
+              orderBy: { createdAt: 'desc' },
+              take: 1, // Get the latest message
+              include: {
+                sender: {
+                  select: { id: true, username: true, firstName: true, lastName: true, profilePictureUrl: true },
+                },
+                imageAttachments: true,
+                videoAttachments: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        conversation: {
+          updatedAt: 'desc', // Order by most recently updated conversation
+        },
+      },
+    });
+    // Map the result to a cleaner format if needed
+    const formattedConversations = conversations.map(cm => ({
+      id: cm.conversation.id,
+      name: cm.conversation.name,
+      updatedAt: cm.conversation.updatedAt,
+      lastMessage: cm.conversation.messages[0] || null,
+      participants: cm.conversation.members
+        .filter(member => member.userId !== req.userId) // Exclude the current user
+        .map(member => member.user),
+    }));
+    res.json(formattedConversations);
+  } catch (error) {
+    console.error("Error fetching conversations:", error);
+    next(error);
+  }
+});
+
+
+
+
+
 // Start a new conversation
 
 router.post("/direct", verifyToken, async (req, res, next) => {
@@ -159,6 +218,31 @@ router.post("/:conversationId/messages", verifyToken, upload, async (req, res, n
   }
 });
 
+// Get all messages of specific convo
 
+router.get("/:conversationId/messages", verifyToken, async (req, res, next) => {
+  try {
+    const { conversationId } = req.params;
+    // Optionally verify if the current user is a member of this conversation
+
+    const messages = await prisma.message.findMany({
+      where: { conversationId: parseInt(conversationId) },
+      include: {
+        sender: {
+          select: { id: true, username: true, firstName: true, lastName: true, profilePictureUrl: true },
+        },
+        imageAttachments: true,
+        videoAttachments: true,
+      },
+      orderBy: {
+        timestamp: 'asc',
+      },
+    });
+    res.json(messages);
+  } catch (error) {
+    console.error(`Error fetching messages for conversation ${conversationId}:`, error);
+    next(error);
+  }
+});
 
 module.exports = router;
