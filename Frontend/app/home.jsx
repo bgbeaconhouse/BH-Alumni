@@ -18,7 +18,7 @@ const Home = () => {
           </Link>
         </TouchableOpacity>
         <TouchableOpacity style={styles.messageButton}>
-          <Link href="/chatScreen" style={styles.buttonText}>
+          <Link href="/messaging" style={styles.buttonText}>
             Messages
           </Link>
         </TouchableOpacity>
