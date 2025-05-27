@@ -1,11 +1,13 @@
-import { StyleSheet, Text, View, FlatList, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, Text, View, FlatList, ActivityIndicator, TouchableOpacity, Alert, Platform } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Link, useRouter } from 'expo-router'; // Import useRouter
 
 const Messaging = () => {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const router = useRouter(); // Initialize router
 
   // Function to retrieve the JWT token from AsyncStorage
   const getToken = async () => {
@@ -60,68 +62,59 @@ const Messaging = () => {
     fetchConversations();
   }, []);
 
-  const renderConversationItem = ({ item }) => {
-    const conversationName = item.name
-      ? item.name
-      : item.participants.length > 0
-        ? item.participants.map(p => p.firstName).join(', ')
-        : 'Unknown Chat';
-
-    return (
-      <TouchableOpacity style={styles.conversationItem} onPress={() => {
-        Alert.alert("Conversation Clicked", `You clicked on: ${conversationName}`);
-      }}>
-        <Text style={styles.conversationName}>{conversationName}</Text>
-        {item.lastMessage && (
-          <Text style={styles.lastMessage}>
-            {item.lastMessage.sender.firstName}: {item.lastMessage.content ? item.lastMessage.content : 'Attachment'}
-          </Text>
-        )}
-        {!item.lastMessage && (
-          <Text style={styles.noMessage}>No messages yet.</Text>
-        )}
-      </TouchableOpacity>
-    );
-  };
-
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#0000ff" />
-        <Text>Loading conversations...</Text>
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={fetchConversations}>
-          <Text style={styles.retryButtonText}>Try Again</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (conversations.length === 0) {
-    return (
-      <View style={styles.centered}>
-        <Text>No conversations found.</Text>
-        <Text>Start a new chat to see it here!</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Your Conversations</Text>
-      <FlatList
-        data={conversations}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={renderConversationItem}
-        contentContainerStyle={styles.listContent}
-      />
+      <View style={styles.headerContainer}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.push('/')}>
+          <Text style={styles.backButtonText}>Home</Text>
+        </TouchableOpacity>
+        <Text style={styles.header}>Your Conversations</Text>
+        {/* Optional: Add space to balance the back button */}
+        <View style={{ width: 80 }} />
+      </View>
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color="#0000ff" />
+          <Text>Loading conversations...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchConversations}>
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      ) : conversations.length === 0 ? (
+        <View style={styles.centered}>
+          <Text>No conversations found.</Text>
+          <Text>Start a new chat to see it here!</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={conversations}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item }) => (
+            <Link
+              href={{
+                pathname: '/seeMessages',
+                params: { conversationId: item.id },
+              }}
+              style={styles.conversationItem}
+            >
+              <Text style={styles.conversationName}>{item.name ? item.name : item.participants.map(p => p.firstName).join(', ')}</Text>
+              {item.lastMessage && (
+                <Text style={styles.lastMessage}>
+                  {item.lastMessage.sender.firstName}: {item.lastMessage.content ? item.lastMessage.content : 'Attachment'}
+                </Text>
+              )}
+              {!item.lastMessage && (
+                <Text style={styles.noMessage}>No messages yet.</Text>
+              )}
+            </Link>
+          )}
+          contentContainerStyle={styles.listContent}
+        />
+      )}
     </View>
   );
 };
@@ -131,8 +124,24 @@ export default Messaging;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 20,
     backgroundColor: '#f0f2f5',
+  },
+  headerContainer: {
+    paddingTop: Platform.OS === 'ios' ? 50 : 20,
+    paddingHorizontal: 10,
+    backgroundColor: '#f0f0f0',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backButton: {
+    paddingVertical: 10,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#007bff',
   },
   centered: {
     flex: 1,
@@ -143,7 +152,6 @@ const styles = StyleSheet.create({
   header: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 15,
     textAlign: 'center',
     color: '#333',
   },
