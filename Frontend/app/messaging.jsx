@@ -65,7 +65,7 @@ const Messaging = () => {
   return (
     <View style={styles.container}>
       <View style={styles.headerContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.push('/')}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.push('/home')}>
           <Text style={styles.backButtonText}>Home</Text>
         </TouchableOpacity>
         <Text style={styles.header}>Your Conversations</Text>

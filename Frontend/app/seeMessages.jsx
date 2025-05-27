@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router'; // Import useRouter
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons'; // Import Ionicons for the back arrow
 
 const SeeMessages = () => {
   const { conversationId } = useLocalSearchParams();
@@ -22,6 +23,7 @@ const SeeMessages = () => {
   const [error, setError] = useState(null);
   const flatListRef = useRef(null);
   const router = useRouter(); // Initialize router
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   const getToken = async () => {
     try {
@@ -32,6 +34,27 @@ const SeeMessages = () => {
       return null;
     }
   };
+
+  const getUserId = useCallback(async () => {
+    const token = await getToken();
+    if (token) {
+      try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+
+        const payload = JSON.parse(jsonPayload);
+        setCurrentUserId(payload.id);
+      } catch (e) {
+        console.error("Error decoding token:", e);
+        setCurrentUserId(null);
+      }
+    } else {
+      setCurrentUserId(null);
+    }
+  }, []);
 
   const fetchMessages = async () => {
     setLoading(true);
@@ -104,10 +127,11 @@ const SeeMessages = () => {
   };
 
   useEffect(() => {
+    getUserId();
     if (conversationId) {
       fetchMessages();
     }
-  }, [conversationId]);
+  }, [getUserId, conversationId]); // Added getUserId to the dependency array
 
   useEffect(() => {
     if (messages.length > 0 && !loading) {
@@ -117,13 +141,17 @@ const SeeMessages = () => {
     }
   }, [messages, loading]);
 
-  const renderMessageItem = ({ item }) => (
-    <View style={[styles.messageBubble, item.isSender ? styles.sentMessage : styles.receivedMessage]}>
-      <Text style={styles.senderName}>{item.isSender ? 'You' : item.sender.firstName}</Text>
-      <Text style={styles.messageText}>{item.content}</Text>
-      {item.attachment && <Text style={styles.attachmentText}>Attachment</Text>}
-    </View>
-  );
+  const renderMessageItem = ({ item }) => {
+    const isCurrentUserSender = item.senderId === currentUserId;
+
+    return (
+      <View style={[styles.messageBubble, isCurrentUserSender ? styles.sentMessage : styles.receivedMessage]}>
+        <Text style={styles.senderName}>{isCurrentUserSender ? 'You' : item.sender?.firstName}</Text>
+        <Text style={styles.messageText}>{item.content}</Text>
+        {item.attachment && <Text style={styles.attachmentText}>Attachment</Text>}
+      </View>
+    );
+  };
 
   if (loading) {
     return (
@@ -149,13 +177,14 @@ const SeeMessages = () => {
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
       <View style={styles.headerContainer}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.push('/messaging')}>
-          <Text style={styles.backButtonText}>Back to Messages</Text>
+          <Ionicons name="arrow-back" size={24} color="#007bff" />
+          <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
-        {/* You might want to display the conversation name here */}
+        {/* You might want to display the conversation name centered here */}
       </View>
       <View style={styles.container}>
         <FlatList
@@ -183,7 +212,7 @@ const SeeMessages = () => {
 
 const styles = StyleSheet.create({
   headerContainer: {
-    paddingTop: Platform.OS === 'ios' ? 50 : 20, // Adjust for status bar
+    paddingTop: Platform.OS === 'ios' ? 50 : 20,
     paddingHorizontal: 10,
     backgroundColor: '#f0f0f0',
     borderBottomWidth: 1,
@@ -193,12 +222,15 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 15,
+    paddingRight: 15,
   },
   backButtonText: {
     fontSize: 16,
     color: '#007bff',
+    marginLeft: 5,
   },
   container: {
     flex: 1,
@@ -220,11 +252,11 @@ const styles = StyleSheet.create({
     maxWidth: '80%',
   },
   sentMessage: {
-    backgroundColor: '#DCF8C6',
+    backgroundColor: '#DCF8C6', // Light green for sent messages
     alignSelf: 'flex-end',
   },
   receivedMessage: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFFFF', // White for received messages
     alignSelf: 'flex-start',
   },
   senderName: {
