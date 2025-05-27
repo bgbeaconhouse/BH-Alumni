@@ -111,9 +111,12 @@ const Messaging = () => {
             >
               <Text style={styles.conversationName}>{item.name ? item.name : item.participants.map(p => p.firstName).join(', ')}</Text>
               {item.lastMessage && (
+                <>
+                 <View style={{ width: 10 }} />
                 <Text style={styles.lastMessage}>
                   {item.lastMessage.sender.firstName}: {item.lastMessage.content ? item.lastMessage.content : 'Attachment'}
                 </Text>
+                </>
               )}
               {!item.lastMessage && (
                 <Text style={styles.noMessage}>No messages yet.</Text>
@@ -203,6 +206,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#333',
+    
   },
   lastMessage: {
     fontSize: 14,
