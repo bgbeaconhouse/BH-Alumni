@@ -245,4 +245,51 @@ router.get("/:conversationId/messages", verifyToken, async (req, res, next) => {
   }
 });
 
+// Start a new group conversation (or a direct one via recipientIds)
+router.post("/", verifyToken, async (req, res, next) => {
+    try {
+        const { recipientIds, initialMessage } = req.body;
+        const currentUserId = req.userId;
+
+        if (!recipientIds || !Array.isArray(recipientIds) || recipientIds.length === 0) {
+            return res.status(400).json({ error: "Please provide recipient IDs." });
+        }
+
+        const allUserIds = [currentUserId, ...recipientIds.map(id => parseInt(id))];
+
+        // Create the new conversation
+        const newConversation = await prisma.conversation.create({
+            data: {}, // You might add a name here for group chats
+        });
+
+        // Add members to the conversation
+        const conversationMembersData = allUserIds.map(userId => ({
+            conversationId: newConversation.id,
+            userId: userId,
+        }));
+        await prisma.conversationMember.createMany({ data: conversationMembersData });
+
+        // If there's an initial message, create it
+        if (initialMessage && initialMessage.content) {
+            await prisma.message.create({
+                data: {
+                    conversationId: newConversation.id,
+                    senderId: currentUserId,
+                    content: initialMessage.content,
+                },
+            });
+        }
+
+        // Fetch the newly created conversation with its members
+        const populatedConversation = await prisma.conversation.findUnique({
+            where: { id: newConversation.id },
+            include: { members: { include: { user: true } } },
+        });
+
+        res.status(201).json(populatedConversation);
+    } catch (error) {
+        console.error("Error creating conversation:", error);
+        next(error);
+    }
+});
 module.exports = router;
