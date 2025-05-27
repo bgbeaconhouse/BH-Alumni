@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router'; // Import useRouter
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons'; // Import Ionicons for the back arrow
+// import { Ionicons } from '@expo/vector-icons'; // Removed Ionicons import
 
 const SeeMessages = () => {
   const { conversationId } = useLocalSearchParams();
@@ -180,9 +180,8 @@ const SeeMessages = () => {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
       <View style={styles.headerContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.push('/messaging')}>
-          <Ionicons name="arrow-back" size={24} color="#007bff" />
-          <Text style={styles.backButtonText}>Back</Text>
+        <TouchableOpacity style={styles.backButtonStyled} onPress={() => router.push('/messaging')}>
+          <Text style={styles.backButtonTextStyled}>Back</Text>
         </TouchableOpacity>
         {/* You might want to display the conversation name centered here */}
       </View>
@@ -231,6 +230,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#007bff',
     marginLeft: 5,
+  },
+  backButtonStyled: {
+    backgroundColor: '#007bff',
+    borderRadius: 5,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonTextStyled: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: 'bold',
   },
   container: {
     flex: 1,

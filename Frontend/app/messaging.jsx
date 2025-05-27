@@ -62,15 +62,23 @@ const Messaging = () => {
     fetchConversations();
   }, []);
 
+  const handleNewMessagePress = () => {
+    // Navigate to the screen where a new message can be started
+    router.push('/newMessage'); // Assuming you have a /newMessage route
+  };
+
   return (
     <View style={styles.container}>
-      <View style={styles.headerContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.push('/home')}>
-          <Text style={styles.backButtonText}>Home</Text>
-        </TouchableOpacity>
-        <Text style={styles.header}>Your Conversations</Text>
-        {/* Optional: Add space to balance the back button */}
-        <View style={{ width: 80 }} />
+      <View style={styles.header}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity style={styles.homeButton} onPress={() => router.push('/home')}>
+            <Text style={styles.homeButtonText}>Home</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.newMessageButton} onPress={handleNewMessagePress}>
+            <Text style={styles.newMessageButtonText}>New Message</Text>
+          </TouchableOpacity>
+        </View>
+        {/* <Text style={styles.headerText}>Your Conversations</Text> */}
       </View>
       {loading ? (
         <View style={styles.centered}>
@@ -126,34 +134,54 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f0f2f5',
   },
-  headerContainer: {
+  header: {
     paddingTop: Platform.OS === 'ios' ? 50 : 20,
     paddingHorizontal: 10,
     backgroundColor: '#f0f0f0',
     borderBottomWidth: 1,
     borderBottomColor: '#ccc',
+  },
+  headerTop: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 10,
   },
-  backButton: {
+  homeButton: {
+    backgroundColor: '#007bff',
     paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 5,
   },
-  backButtonText: {
+  homeButtonText: {
+    color: '#fff',
     fontSize: 16,
-    color: '#007bff',
+    fontWeight: 'bold',
+  },
+  newMessageButton: {
+    backgroundColor: '#28a745',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 5,
+  },
+  newMessageButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  headerText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#333',
+    marginBottom: 15,
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f0f2f5',
-  },
-  header: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    color: '#333',
   },
   listContent: {
     paddingHorizontal: 10,
@@ -164,6 +192,7 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 10,
     marginBottom: 10,
+    marginTop: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
