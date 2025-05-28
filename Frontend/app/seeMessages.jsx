@@ -10,9 +10,12 @@ import {
     Alert,
     KeyboardAvoidingView,
     Platform,
+    Image,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system'; // IMPORT AT THE TOP
 
 const SeeMessages = () => {
     const { conversationId } = useLocalSearchParams();
@@ -23,7 +26,7 @@ const SeeMessages = () => {
     const flatListRef = useRef(null);
     const router = useRouter();
     const [currentUserId, setCurrentUserId] = useState(null);
-    const websocket = useRef(null); // Ref to hold the WebSocket instance
+    const websocket = useRef(null);
 
     const getToken = async () => {
         try {
@@ -47,7 +50,7 @@ const SeeMessages = () => {
 
                 const payload = JSON.parse(jsonPayload);
                 setCurrentUserId(payload.id);
-                return payload.id; // Return the user ID
+                return payload.id;
             } catch (e) {
                 console.error("Error decoding token:", e);
                 setCurrentUserId(null);
@@ -103,10 +106,93 @@ const SeeMessages = () => {
                 };
                 websocket.current.send(JSON.stringify(messagePayload));
                 setNewMessage('');
-                // Messages sent via WebSocket will be handled by the 'message' listener
             } else {
                 Alert.alert("Error", "WebSocket is not connected. Please try again.");
             }
+        }
+    };
+
+    const pickMedia = async () => {
+        let permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+        if (permissionResult.granted === false) {
+            Alert.alert('Permission to access camera roll is required!');
+            return;
+        }
+
+        let pickerResult = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.All,
+            allowsEditing: Platform.OS === 'ios' ? true : false,
+            aspect: [4, 3],
+            quality: 1,
+        });
+
+        console.log("Picker Result:", pickerResult);
+
+        if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
+            const selectedMedia = pickerResult.assets[0];
+            console.log("URI before handleSendMedia:", selectedMedia.uri); // ADD THIS LOG
+            handleSendMedia(selectedMedia);
+        }
+    };
+
+    const handleSendMedia = async (media) => {
+        const token = await getToken();
+        if (!token) {
+            Alert.alert("Error", "Authentication token not found.");
+            return;
+        }
+
+        setLoading(true);
+        setError(null);
+
+        try {
+            console.log("Media URI in handleSendMedia:", media.uri);
+
+            const fileInfo = await FileSystem.getInfoAsync(media.uri);
+            console.log("File Info:", fileInfo);
+
+            if (!fileInfo.exists) {
+                throw new Error(`File not found at URI: ${media.uri}`);
+            }
+
+            const base64 = await FileSystem.readAsStringAsync(media.uri, { encoding: FileSystem.EncodingType.Base64 });
+            const uriParts = media.uri.split('.');
+            const fileType = uriParts[uriParts.length - 1];
+
+            const formData = new FormData();
+            formData.append('media', {
+                uri: media.uri, // Keep this for potential server-side use
+                name: media.fileName || `file.${fileType}`,
+                type: media.mimeType || `image/${fileType}`,
+                data: base64, // Append the base64 encoded data
+            });
+
+            console.log("FormData contents (with base64):", formData._parts ? formData._parts.length : 0);
+
+            const response = await fetch(`http://192.168.0.34:3000/api/conversations/${conversationId}/messages`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            console.log("Response:", response);
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.log("Error Data:", errorData);
+                throw new Error(errorData.message || 'Failed to send media');
+            }
+
+            setLoading(false);
+        } catch (err) {
+            console.error("Error sending media:", err);
+            setError(err.message || "Failed to send media.");
+            Alert.alert("Error", err.message || "Could not send media.");
+            setLoading(false);
         }
     };
 
@@ -139,7 +225,6 @@ const SeeMessages = () => {
 
                     websocket.current.onclose = () => {
                         console.log("WebSocket disconnected");
-                        // Optionally attempt to reconnect after a delay
                         setTimeout(connectWebSocket, 3000);
                     };
 
@@ -183,9 +268,18 @@ const SeeMessages = () => {
                 <Text style={styles.senderName}>{isCurrentUserSender ? 'You' : item.sender?.firstName}</Text>
                 <Text style={styles.messageText}>{item.content}</Text>
                 {(item.imageAttachments && item.imageAttachments.length > 0) && (
-                    item.imageAttachments.map(attachment => (
-                        <Text key={attachment.id} style={styles.attachmentText}>Image: {attachment.url.split('/').pop()}</Text>
-                    ))
+                    item.imageAttachments.map(attachment => {
+                        console.log("Image Attachment URL:", attachment.url); // ADD THIS LINE
+                        return (
+                            <Image
+                                key={attachment.id}
+                                source={{ uri: `http://192.168.0.34:3000${attachment.url}` }}
+                                style={{ width: 200, height: 200, borderRadius: 5, marginTop: 5 }}
+                                resizeMode="cover"
+                                onError={(error) => console.error("Image loading error:", error)}
+                            />
+                        );
+                    })
                 )}
                 {(item.videoAttachments && item.videoAttachments.length > 0) && (
                     item.videoAttachments.map(attachment => (
@@ -237,12 +331,15 @@ const SeeMessages = () => {
                     contentContainerStyle={styles.messagesContainer}
                 />
                 <View style={styles.inputContainer}>
+                    <TouchableOpacity onPress={pickMedia} style={styles.mediaButton}>
+                        <Text style={styles.mediaButtonText}>+</Text>
+                    </TouchableOpacity>
                     <TextInput
                         style={styles.input}
                         placeholder="Send a message..."
                         value={newMessage}
                         onChangeText={setNewMessage}
-                        onSubmitEditing={sendMessage} // Send message on pressing Enter
+                        onSubmitEditing={sendMessage}
                     />
                     <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
                         <Text style={styles.sendButtonText}>Send</Text>
@@ -309,11 +406,11 @@ const styles = StyleSheet.create({
         maxWidth: '80%',
     },
     sentMessage: {
-        backgroundColor: '#DCF8C6', // Light green for sent messages
+        backgroundColor: '#DCF8C6',
         alignSelf: 'flex-end',
     },
     receivedMessage: {
-        backgroundColor: '#FFFFFF', // White for received messages
+        backgroundColor: '#FFFFFF',
         alignSelf: 'flex-start',
     },
     senderName: {
@@ -374,6 +471,20 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    mediaButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#ccc',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 10,
+    },
+    mediaButtonText: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#fff',
     },
 });
 
