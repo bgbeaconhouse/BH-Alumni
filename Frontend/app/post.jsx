@@ -568,7 +568,17 @@ const Post = () => {
           >
             {modalImages.map((image, index) => (
               <View key={index} style={styles.modalPage}>
-                <Image source={{ uri: image.uri }} style={styles.modalImage} resizeMode="contain" />
+            <Image
+    source={{ 
+        uri: image.uri,
+        cache: 'reload' // Force fresh load
+    }}
+    style={styles.modalImage}
+    resizeMode="contain"
+    // Reduce memory usage
+    resizeMethod="resize" // Android specific
+    fadeDuration={0}
+/>
               </View>
             ))}
           </ScrollView>
@@ -868,6 +878,7 @@ const styles = StyleSheet.create({
     width: '90%',
     height: '90%',
     resizeMode: 'contain',
+   
   },
   deletePostButton: {
     backgroundColor: '#d9534f',
