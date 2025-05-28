@@ -15,7 +15,8 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system'; // IMPORT AT THE TOP
+import * as FileSystem from 'expo-file-system';
+import { Video } from 'expo-av'; // Import Video
 
 const SeeMessages = () => {
     const { conversationId } = useLocalSearchParams();
@@ -131,7 +132,7 @@ const SeeMessages = () => {
 
         if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
             const selectedMedia = pickerResult.assets[0];
-            console.log("URI before handleSendMedia:", selectedMedia.uri); // ADD THIS LOG
+            console.log("URI before handleSendMedia:", selectedMedia.uri);
             handleSendMedia(selectedMedia);
         }
     };
@@ -148,27 +149,16 @@ const SeeMessages = () => {
 
         try {
             console.log("Media URI in handleSendMedia:", media.uri);
-
-            const fileInfo = await FileSystem.getInfoAsync(media.uri);
-            console.log("File Info:", fileInfo);
-
-            if (!fileInfo.exists) {
-                throw new Error(`File not found at URI: ${media.uri}`);
-            }
-
-            const base64 = await FileSystem.readAsStringAsync(media.uri, { encoding: FileSystem.EncodingType.Base64 });
-            const uriParts = media.uri.split('.');
-            const fileType = uriParts[uriParts.length - 1];
+            console.log("Media Type:", media.mimeType);
 
             const formData = new FormData();
             formData.append('media', {
-                uri: media.uri, // Keep this for potential server-side use
-                name: media.fileName || `file.${fileType}`,
-                type: media.mimeType || `image/${fileType}`,
-                data: base64, // Append the base64 encoded data
+                uri: media.uri,
+                name: media.fileName || 'file',
+                type: media.mimeType,
             });
 
-            console.log("FormData contents (with base64):", formData._parts ? formData._parts.length : 0);
+            console.log("FormData contents:", formData._parts ? formData._parts.length : 0);
 
             const response = await fetch(`http://192.168.0.34:3000/api/conversations/${conversationId}/messages`, {
                 method: 'POST',
@@ -268,22 +258,26 @@ const SeeMessages = () => {
                 <Text style={styles.senderName}>{isCurrentUserSender ? 'You' : item.sender?.firstName}</Text>
                 <Text style={styles.messageText}>{item.content}</Text>
                 {(item.imageAttachments && item.imageAttachments.length > 0) && (
-                    item.imageAttachments.map(attachment => {
-                        console.log("Image Attachment URL:", attachment.url); // ADD THIS LINE
-                        return (
-                            <Image
-                                key={attachment.id}
-                                source={{ uri: `http://192.168.0.34:3000${attachment.url}` }}
-                                style={{ width: 200, height: 200, borderRadius: 5, marginTop: 5 }}
-                                resizeMode="cover"
-                                onError={(error) => console.error("Image loading error:", error)}
-                            />
-                        );
-                    })
+                    item.imageAttachments.map(attachment => (
+                        <Image
+                            key={attachment.id}
+                            source={{ uri: `http://192.168.0.34:3000${attachment.url}` }}
+                            style={styles.imageAttachment}
+                            resizeMode="cover"
+                            onError={(error) => console.error("Image loading error:", error)}
+                        />
+                    ))
                 )}
                 {(item.videoAttachments && item.videoAttachments.length > 0) && (
                     item.videoAttachments.map(attachment => (
-                        <Text key={attachment.id} style={styles.attachmentText}>Video: {attachment.url.split('/').pop()}</Text>
+                        <Video
+                            key={attachment.id}
+                            source={{ uri: `http://192.168.0.34:3000${attachment.url}` }}
+                            style={styles.videoAttachment}
+                            useNativeControls
+                            resizeMode="cover"
+                            isLooping
+                        />
                     ))
                 )}
             </View>
@@ -485,6 +479,18 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: 'bold',
         color: '#fff',
+    },
+    imageAttachment: {
+        width: 200,
+        height: 200,
+        borderRadius: 5,
+        marginTop: 5,
+    },
+    videoAttachment: {
+        width: 200,
+        height: 200,
+        borderRadius: 5,
+        marginTop: 5,
     },
 });
 
