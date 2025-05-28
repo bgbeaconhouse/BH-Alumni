@@ -1,8 +1,9 @@
+// server.js
 require("dotenv").config();
 const express = require("express");
 const app = express();
-const http = require('http'); // Import http module
-const { WebSocketServer } = require('ws'); // Import WebSocketServer
+const http = require('http');
+const { WebSocketServer } = require('ws');
 const prisma = require("./prisma");
 const PORT = 3000;
 
@@ -32,49 +33,39 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
 // Map to store connected WebSocket clients: userId -> WebSocket instance
-// This allows us to easily find a user's WebSocket connection to send them messages.
 const connectedClients = new Map();
 
 // WebSocket server connection handling
 wss.on('connection', (ws, req) => {
     console.log('New WebSocket client connected');
 
-    // Extract token from the WebSocket connection URL for authentication
-    // For example: ws://localhost:3000/?token=YOUR_JWT_TOKEN
     const urlParams = new URLSearchParams(req.url.split('?')[1]);
     const token = urlParams.get('token');
-    let userId = null; // Initialize userId
+    let userId = null;
 
     if (token) {
         try {
-            // Verify the JWT token
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            userId = decoded.id; // Assuming your JWT payload has an 'id' field for userId
+            userId = decoded.id;
 
-            // Store the authenticated user's WebSocket connection
             connectedClients.set(userId, ws);
             console.log(`User ${userId} authenticated and connected via WebSocket.`);
 
-            // Event listener for messages received from this client
             ws.on('message', async (message) => {
                 try {
                     const parsedMessage = JSON.parse(message.toString());
                     const { conversationId, content } = parsedMessage;
 
-                    // Ensure the message has necessary data and the sender is authenticated
                     if (!userId) {
                         console.warn('Received message from unauthenticated WebSocket client.');
                         return;
                     }
-                    if (!conversationId || (!content && !parsedMessage.media)) { // Assuming 'media' field for attachments
+                    if (!conversationId || (!content && !parsedMessage.media)) {
                         console.warn('Invalid message format received:', parsedMessage);
                         return;
                     }
 
-                    // 1. Save the message to the database
-                    // For simplicity, this example assumes text content.
-                    // If you also send media via WebSocket, you'd need to handle base64 encoding/decoding
-                    // or a different approach for media transfer. For now, media is handled by the REST API.
+                    // Save the message to the database
                     const newMessage = await prisma.message.create({
                         data: {
                             senderId: userId,
@@ -85,14 +76,14 @@ wss.on('connection', (ws, req) => {
                             sender: {
                                 select: { id: true, username: true, firstName: true, lastName: true, profilePictureUrl: true },
                             },
-                            imageAttachments: true, // Include attachments if they are part of the message object
+                            imageAttachments: true,
                             videoAttachments: true,
                         },
                     });
 
-                    console.log(`Message saved: ${newMessage.id} in conversation ${conversationId}`);
+                    console.log(`Message saved via WebSocket: ${newMessage.id} in conversation ${conversationId}`);
 
-                    // 2. Broadcast the new message to all other clients in the same conversation
+                    // Broadcast the new message to all other clients in the same conversation
                     const conversationMembers = await prisma.conversationMember.findMany({
                         where: { conversationId: parseInt(conversationId) },
                         select: { userId: true },
@@ -101,9 +92,7 @@ wss.on('connection', (ws, req) => {
                     const memberUserIds = new Set(conversationMembers.map(member => member.userId));
 
                     for (const [clientId, clientWs] of connectedClients) {
-                        // Send message to all members of the conversation (excluding the sender's own WebSocket if needed)
                         if (memberUserIds.has(clientId)) {
-                            // Ensure the client connection is still open before sending
                             if (clientWs.readyState === ws.OPEN) {
                                 clientWs.send(JSON.stringify({ type: 'newMessage', message: newMessage }));
                             }
@@ -115,20 +104,18 @@ wss.on('connection', (ws, req) => {
                 }
             });
 
-            // Event listener for when the client disconnects
             ws.on('close', () => {
                 connectedClients.delete(userId);
                 console.log(`User ${userId} disconnected from WebSocket.`);
             });
 
-            // Event listener for WebSocket errors
             ws.on('error', (error) => {
                 console.error(`WebSocket error for user ${userId}:`, error);
             });
 
         } catch (err) {
             console.error('WebSocket authentication failed:', err);
-            ws.close(); // Close connection if authentication fails
+            ws.close();
         }
     } else {
         console.log('WebSocket connection attempted without authentication token. Closing connection.');
@@ -272,7 +259,11 @@ app.post("/api/admin/approve/:userId", verifyToken, async (req, res, next) => {
     }
 });
 
-// Your existing API routes from './api'
+// Pass wss and connectedClients to the conversations router
+app.use("/api/conversations", require("./api/conversations")(wss, connectedClients));
+
+// Your other existing API routes from './api'
+// Make sure to adjust other routes if they also need access to wss/connectedClients
 app.use("/api", require("./api"));
 
 // Error handling middleware
