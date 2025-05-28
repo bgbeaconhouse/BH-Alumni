@@ -11,6 +11,9 @@ import {
     KeyboardAvoidingView,
     Platform,
     Image,
+    Modal,
+    Pressable,
+    ScrollView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -28,6 +31,8 @@ const SeeMessages = () => {
     const router = useRouter();
     const [currentUserId, setCurrentUserId] = useState(null);
     const websocket = useRef(null);
+    const [modalVisible, setModalVisible] = useState(false);
+    const [selectedImage, setSelectedImage] = useState(null);
 
     const getToken = async () => {
         try {
@@ -259,13 +264,22 @@ const SeeMessages = () => {
                 <Text style={styles.messageText}>{item.content}</Text>
                 {(item.imageAttachments && item.imageAttachments.length > 0) && (
                     item.imageAttachments.map(attachment => (
-                        <Image
-                            key={attachment.id}
-                            source={{ uri: `http://192.168.0.34:3000${attachment.url}` }}
-                            style={styles.imageAttachment}
-                            resizeMode="cover"
-                            onError={(error) => console.error("Image loading error:", error)}
-                        />
+                         <TouchableOpacity
+            key={attachment.id}
+            onPress={() => {
+                const imageUrl = `http://192.168.0.34:3000${attachment.url}`;
+                console.log("Tapped image URL:", imageUrl); // Log the constructed URL
+                setSelectedImage(imageUrl);
+                setModalVisible(true);
+            }}
+        >
+            <Image
+                source={{ uri: `http://192.168.0.34:3000${attachment.url}` }}
+                style={styles.imageAttachment}
+                resizeMode="cover"
+                onError={(error) => console.error("Image loading error:", error)}
+            />
+        </TouchableOpacity>
                     ))
                 )}
                 {(item.videoAttachments && item.videoAttachments.length > 0) && (
@@ -339,6 +353,39 @@ const SeeMessages = () => {
                         <Text style={styles.sendButtonText}>Send</Text>
                     </TouchableOpacity>
                 </View>
+
+                <Modal
+                    animationType="slide"
+                    transparent={true}
+                    visible={modalVisible}
+                    onRequestClose={() => {
+                        setModalVisible(false);
+                        setSelectedImage(null);
+                    }}
+                >
+                    <View style={styles.modalContainer}>
+                        <ScrollView
+                            style={styles.modalScrollView}
+                            maximumZoomScale={3}
+                            minimumZoomScale={1}
+                            centerContent={true}
+                        >
+                            {selectedImage && (
+                                <Image
+                                    source={{ uri: selectedImage }}
+                                    style={styles.modalImage}
+                                    resizeMode="contain"
+                                />
+                            )}
+                        </ScrollView>
+                        <TouchableOpacity style={styles.closeButton} onPress={() => {
+                            setModalVisible(false);
+                            setSelectedImage(null);
+                        }}>
+                            <Text style={styles.closeButtonText}>Close</Text>
+                        </TouchableOpacity>
+                    </View>
+                </Modal>
             </View>
         </KeyboardAvoidingView>
     );
@@ -473,7 +520,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#ccc',
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 10,
+       marginRight: 10,
     },
     mediaButtonText: {
         fontSize: 24,
@@ -491,6 +538,35 @@ const styles = StyleSheet.create({
         height: 200,
         borderRadius: 5,
         marginTop: 5,
+    },
+    modalContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    },
+    // modalScrollView: {
+    //   flex: 1, // Make ScrollView take available modal space
+    // width: '100%',
+    // height: '80%'
+    // },
+    modalImage: {
+     width: '100%',
+    height: '100%', // Let height adjust based on content aspect ratio
+    aspectRatio: 1, // Try forcing a 1:1 aspect ratio initially
+   
+ 
+    },
+    closeButton: {
+        position: 'absolute',
+        bottom: 20,
+        padding: 10,
+        backgroundColor: 'rgba(255, 255, 255, 0.3)',
+        borderRadius: 5,
+    },
+    closeButtonText: {
+        color: 'white',
+        fontSize: 16,
     },
 });
 
