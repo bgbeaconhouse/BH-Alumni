@@ -13,10 +13,12 @@
     "expo": "~53.0.9",
     "expo-av": "~15.1.4",
     "expo-constants": "~17.1.6",
+    "expo-file-system": "~18.1.10",
     "expo-image-picker": "~16.1.4",
     "expo-linking": "~7.1.5",
     "expo-modules": "^0.0.0",
     "expo-router": "~5.0.7",
+    "expo-secure-store": "^14.2.3",
     "expo-status-bar": "~2.2.3",
     "expo-video": "~2.1.9",
     "react": "19.0.0",
@@ -25,8 +27,7 @@
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.10.0",
     "stream-browserify": "^3.0.0",
-    "ws": "^8.18.2",
-    "expo-file-system": "~18.1.10"
+    "ws": "^8.18.2"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"
