@@ -33,17 +33,23 @@ const CreatePosts = () => {
 
   const pickMedia = async () => {
     setIsUploadingMedia(true); // Start of upload
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
-      allowsMultipleSelection: true,
-      quality: 0.7,
-    });
+    try {
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images', 'videos'],
+        allowsMultipleSelection: true,
+        quality: 0.7,
+      });
 
-    if (!result.canceled && result.assets) {
-      setMedia(prevMedia => [...prevMedia, ...result.assets]);
-      console.log('Selected media:', result.assets);
+      if (!result.canceled && result.assets) {
+        setMedia(prevMedia => [...prevMedia, ...result.assets]);
+        console.log('Selected media:', result.assets);
+      }
+    } catch (error) {
+      console.error('Error picking media:', error);
+      showAlert('Error selecting media. Please try again.');
+    } finally {
+      setIsUploadingMedia(false); // Always reset loading state
     }
-    setIsUploadingMedia(false); // End of upload
   };
 
   // Custom alert function to replace native alert
