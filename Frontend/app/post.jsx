@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, FlatList, ActivityIndicator, Image, TextInput, Modal, ScrollView, Dimensions, Alert } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video'; // Updated import
 import { Link, useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Keep for migration
 import { Feather } from '@expo/vector-icons'; // For the play icon
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -94,8 +95,58 @@ const Post = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [modalImages, setModalImages] = useState([]);
 
+  // Migration function to move tokens from AsyncStorage to SecureStore
+  const migrateFromAsyncStorage = async () => {
+    try {
+      // Check if token exists in AsyncStorage
+      const existingToken = await AsyncStorage.getItem('authToken');
+      
+      if (existingToken) {
+        // Move to SecureStore
+        await SecureStore.setItemAsync('authToken', existingToken);
+        
+        // Remove from AsyncStorage
+        await AsyncStorage.removeItem('authToken');
+        
+        console.log('Token migrated to SecureStore successfully');
+      }
+    } catch (error) {
+      console.error('Error migrating token:', error);
+    }
+  };
+
   const getToken = async () => {
-    return await AsyncStorage.getItem('authToken');
+    try {
+      // First, try to get from SecureStore
+      let token = await SecureStore.getItemAsync('authToken');
+      
+      if (!token) {
+        // If not found, try migration
+        await migrateFromAsyncStorage();
+        token = await SecureStore.getItemAsync('authToken');
+      }
+      
+      return token;
+    } catch (error) {
+      console.error('Error retrieving token from SecureStore:', error);
+      return null;
+    }
+  };
+
+  const setToken = async (token) => {
+    try {
+      await SecureStore.setItemAsync('authToken', token);
+    } catch (error) {
+      console.error('Error storing token in SecureStore:', error);
+    }
+  };
+
+  const removeToken = async () => {
+    try {
+      await SecureStore.deleteItemAsync('authToken');
+    } catch (error) {
+      console.error('Error removing token from SecureStore:', error);
+    }
   };
 
   const getUserId = useCallback(async () => {

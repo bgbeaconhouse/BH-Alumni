@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View, TouchableOpacity, TextInput, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -65,8 +65,18 @@ const Login = () => {
       const tokenToStore = result.token; // Attempt to get the token
 
       if (tokenToStore) {
-        await AsyncStorage.setItem('authToken', tokenToStore);
-        console.log('Token stored successfully:', tokenToStore);
+        try {
+          await SecureStore.setItemAsync('authToken', tokenToStore);
+          console.log('Token stored securely:', tokenToStore);
+        } catch (secureStoreError) {
+          console.error('Error storing token in SecureStore:', secureStoreError);
+          Alert.alert(
+            'Storage Error',
+            'Failed to securely store authentication token. Please try again.'
+          );
+          setLoading(false);
+          return;
+        }
       } else {
         console.warn('Received undefined token from server:', result);
         Alert.alert(

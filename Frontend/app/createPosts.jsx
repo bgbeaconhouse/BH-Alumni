@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View, TouchableOpacity, TextInput, Button, ScrollView, ActivityIndicator } from 'react-native';
 import { useState, useEffect } from 'react';
 import { Link, useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store'; // Changed from AsyncStorage
 import * as ImagePicker from 'expo-image-picker';
 
 const CreatePosts = () => {
@@ -10,17 +10,18 @@ const CreatePosts = () => {
   const [authToken, setAuthToken] = useState(null);
   const [media, setMedia] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isUploadingMedia, setIsUploadingMedia] = useState(false); // New state
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
 
   useEffect(() => {
     const getToken = async () => {
       try {
-        const token = await AsyncStorage.getItem('authToken');
+        // Changed from AsyncStorage.getItem to SecureStore.getItemAsync
+        const token = await SecureStore.getItemAsync('authToken');
         if (token) {
           setAuthToken(token);
         } else {
           console.log('No auth token found. Redirecting to login.');
-          router.replace('/login'); // Adjust the route as needed
+          router.replace('/login');
         }
       } catch (error) {
         console.error('Error fetching auth token:', error);
@@ -32,7 +33,7 @@ const CreatePosts = () => {
   }, [router]);
 
   const pickMedia = async () => {
-    setIsUploadingMedia(true); // Start of upload
+    setIsUploadingMedia(true);
     try {
       let result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images', 'videos'],
@@ -48,18 +49,12 @@ const CreatePosts = () => {
       console.error('Error picking media:', error);
       showAlert('Error selecting media. Please try again.');
     } finally {
-      setIsUploadingMedia(false); // Always reset loading state
+      setIsUploadingMedia(false);
     }
   };
 
-  // Custom alert function to replace native alert
   const showAlert = (message) => {
-    // In a real React Native app, you'd use a custom modal or a library
-    // like 'react-native-modal' or 'react-native-popup-dialog' for alerts.
-    // For this example, we'll log to console and assume a visual component
-    // would display this message.
     console.warn("App Alert:", message);
-    // You might set a state variable here to control a custom modal's visibility and message
   };
 
   const handleSubmit = async () => {
@@ -74,10 +69,10 @@ const CreatePosts = () => {
       return;
     }
 
-    setIsSubmitting(true); // Set submitting state to true
+    setIsSubmitting(true);
 
     try {
-      const apiUrl = 'http://192.168.0.34:3000/api/posts'; // Ensure this is the correct endpoint
+      const apiUrl = 'http://192.168.0.34:3000/api/posts';
       const formData = new FormData();
 
       formData.append('content', content);
@@ -95,7 +90,6 @@ const CreatePosts = () => {
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
-          // 'Content-Type': 'multipart/form-data', // FormData sets this automatically with correct boundary
           'Authorization': `Bearer ${authToken}`,
         },
         body: formData,
@@ -116,7 +110,7 @@ const CreatePosts = () => {
       console.error('Error submitting post:', error);
       showAlert('Error submitting post.');
     } finally {
-      setIsSubmitting(false); // Set submitting state back to false
+      setIsSubmitting(false);
     }
   };
 
@@ -175,12 +169,12 @@ export default CreatePosts;
 
 const styles = StyleSheet.create({
   scrollViewContent: {
-    flexGrow: 1, // Allows content to grow and enable scrolling
+    flexGrow: 1,
   },
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#f8f8f8', // Added a light background for better contrast
+    backgroundColor: '#f8f8f8',
   },
   backButton: {
     backgroundColor: '#e0e0e0',
@@ -190,7 +184,7 @@ const styles = StyleSheet.create({
     width: 80,
     alignItems: 'center',
     marginBottom: 20,
-    shadowColor: '#000', // Added shadow for a subtle lift
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
@@ -202,7 +196,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   title: {
-    fontSize: 28, // Increased font size for title
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 25,
@@ -231,11 +225,11 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   multilineInput: {
-    minHeight: 120, // Increased minHeight for better input area
+    minHeight: 120,
     textAlignVertical: 'top',
   },
   uploadButton: {
-    backgroundColor: '#FF9800', // Orange color
+    backgroundColor: '#FF9800',
     paddingVertical: 15,
     paddingHorizontal: 20,
     borderRadius: 8,
@@ -247,7 +241,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 5,
-    flexDirection: 'row', // To align text and activity indicator
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -270,7 +264,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   createButton: {
-    backgroundColor: '#2196F3', // Blue color
+    backgroundColor: '#2196F3',
     paddingVertical: 15,
     paddingHorizontal: 20,
     borderRadius: 8,

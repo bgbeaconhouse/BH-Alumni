@@ -16,10 +16,74 @@ import {
     ScrollView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Keep for migration
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { Video } from 'expo-av';
+
+// SecureStore keys constants
+const SECURE_STORE_KEYS = {
+    AUTH_TOKEN: 'authToken',
+    USER_ID: 'userId',
+    MIGRATION_COMPLETED: 'migrationCompleted',
+};
+
+// SecureStore helper functions
+const storeSecureData = async (key, value) => {
+    try {
+        await SecureStore.setItemAsync(key, value);
+    } catch (error) {
+        console.error(`Failed to store ${key} in SecureStore:`, error);
+        throw error;
+    }
+};
+
+const getSecureData = async (key) => {
+    try {
+        const value = await SecureStore.getItemAsync(key);
+        return value;
+    } catch (error) {
+        console.error(`Failed to retrieve ${key} from SecureStore:`, error);
+        return null;
+    }
+};
+
+const deleteSecureData = async (key) => {
+    try {
+        await SecureStore.deleteItemAsync(key);
+    } catch (error) {
+        console.error(`Failed to delete ${key} from SecureStore:`, error);
+        throw error;
+    }
+};
+
+// Migration function to move data from AsyncStorage to SecureStore
+const migrateToSecureStore = async () => {
+    try {
+        // Check if migration has already been done
+        const migrationFlag = await getSecureData(SECURE_STORE_KEYS.MIGRATION_COMPLETED);
+        if (migrationFlag === 'true') {
+            return; // Migration already completed
+        }
+
+        console.log('Starting migration from AsyncStorage to SecureStore...');
+
+        // Migrate auth token
+        const oldToken = await AsyncStorage.getItem('authToken');
+        if (oldToken) {
+            await storeSecureData(SECURE_STORE_KEYS.AUTH_TOKEN, oldToken);
+            await AsyncStorage.removeItem('authToken'); // Clean up old storage
+            console.log('Auth token migrated successfully');
+        }
+
+        // Mark migration as completed
+        await storeSecureData(SECURE_STORE_KEYS.MIGRATION_COMPLETED, 'true');
+        console.log('Migration to SecureStore completed successfully');
+    } catch (error) {
+        console.error('Migration to SecureStore failed:', error);
+    }
+};
 
 // Memoized Message Item Component to prevent unnecessary re-renders
 const MessageItem = memo(({ item, currentUserId, onImagePress }) => {
@@ -75,10 +139,10 @@ const SeeMessages = () => {
 
     const getToken = async () => {
         try {
-            const token = await AsyncStorage.getItem('authToken');
+            const token = await getSecureData(SECURE_STORE_KEYS.AUTH_TOKEN);
             return token;
         } catch (e) {
-            console.error("Failed to load token from storage", e);
+            console.error("Failed to load token from SecureStore", e);
             return null;
         }
     };
@@ -308,12 +372,19 @@ const SeeMessages = () => {
             }
         };
 
-        getUserId().then(() => {
+        const initializeComponent = async () => {
+            // Run migration first
+            await migrateToSecureStore();
+            
+            // Then proceed with normal initialization
+            await getUserId();
             if (conversationId) {
                 fetchMessages();
                 connectWebSocket();
             }
-        });
+        };
+
+        initializeComponent();
 
         return () => {
             isMounted = false;

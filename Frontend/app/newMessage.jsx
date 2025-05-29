@@ -11,7 +11,7 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { useRouter } from 'expo-router';
 
 const NewMessage = () => {
@@ -21,20 +21,43 @@ const NewMessage = () => {
   const [error, setError] = useState(null);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [initialMessage, setInitialMessage] = useState('');
-  const [currentUserId, setCurrentUserId] = useState(null); // State to store the current user's ID
+  const [currentUserId, setCurrentUserId] = useState(null);
   const router = useRouter();
 
   /**
-   * Retrieves the authentication token from AsyncStorage.
+   * Retrieves the authentication token from Expo SecureStore.
    * @returns {Promise<string|null>} The authentication token or null if not found.
    */
   const getToken = async () => {
     try {
-      const token = await AsyncStorage.getItem('authToken');
+      const token = await SecureStore.getItemAsync('authToken');
       return token;
     } catch (e) {
-      console.error("Failed to load token from storage", e);
+      console.error("Failed to load token from secure storage", e);
       return null;
+    }
+  };
+
+  /**
+   * Stores the authentication token in Expo SecureStore.
+   * @param {string} token - The authentication token to store.
+   */
+  const setToken = async (token) => {
+    try {
+      await SecureStore.setItemAsync('authToken', token);
+    } catch (e) {
+      console.error("Failed to save token to secure storage", e);
+    }
+  };
+
+  /**
+   * Removes the authentication token from Expo SecureStore.
+   */
+  const removeToken = async () => {
+    try {
+      await SecureStore.deleteItemAsync('authToken');
+    } catch (e) {
+      console.error("Failed to remove token from secure storage", e);
     }
   };
 
@@ -53,16 +76,18 @@ const NewMessage = () => {
         }).join(''));
 
         const payload = JSON.parse(jsonPayload);
-        setCurrentUserId(payload.id); // Assuming the 'id' field is present in the token payload
+        setCurrentUserId(payload.id);
       } catch (e) {
         console.error("Error decoding token:", e);
-        setCurrentUserId(null); // Reset if decoding fails
+        setCurrentUserId(null);
         Alert.alert("Error", "Could not decode user information from token.");
+        // Consider removing invalid token
+        await removeToken();
       }
     } else {
-      setCurrentUserId(null); // Reset if no token
+      setCurrentUserId(null);
     }
-  }, []); // No dependencies, as it only depends on getToken which is stable
+  }, []);
 
   /**
    * Fetches users based on the search term, excluding the current user.
@@ -85,17 +110,22 @@ const NewMessage = () => {
       });
 
       if (!response.ok) {
+        // Handle token expiration or unauthorized access
+        if (response.status === 401) {
+          Alert.alert("Session Expired", "Please log in again.");
+          await removeToken();
+          // You might want to navigate to login screen here
+          return;
+        }
+        
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to fetch users');
       }
 
       const data = await response.json();
-      // Filter out the current user from the list of selectable recipients
       if (currentUserId) {
         setUsers(data.filter(user => user.id !== currentUserId));
       } else {
-        // If currentUserId is not yet loaded, show all users temporarily.
-        // The list will be re-filtered once currentUserId is available due to the useEffect dependency.
         setUsers(data);
       }
     } catch (err) {
@@ -107,19 +137,15 @@ const NewMessage = () => {
     }
   };
 
-  // Effect to get the current user ID when the component mounts
   useEffect(() => {
     getUserId();
-  }, [getUserId]); // getUserId is a useCallback, so it's stable
+  }, [getUserId]);
 
-  // Fetch users when the search term changes or currentUserId becomes available
   useEffect(() => {
-    // Only fetch users if currentUserId has been determined (or if it's explicitly null, meaning no user)
-    // This prevents fetching before we know who the current user is, ensuring proper filtering.
-    if (currentUserId !== undefined) { // Check for undefined to ensure initial fetch after currentUserId is set
+    if (currentUserId !== undefined) {
       fetchUsers();
     }
-  }, [searchTerm, currentUserId]); // Add currentUserId as a dependency
+  }, [searchTerm, currentUserId]);
 
   /**
    * Handles the selection/deselection of a user.
@@ -127,7 +153,6 @@ const NewMessage = () => {
    * @param {object} user - The user object to select/deselect.
    */
   const handleUserSelect = (user) => {
-    // Prevent selecting the current user
     if (user.id === currentUserId) {
       Alert.alert("Cannot select yourself", "You cannot send a message to yourself.");
       return;
@@ -183,13 +208,18 @@ const NewMessage = () => {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          Alert.alert("Session Expired", "Please log in again.");
+          await removeToken();
+          return;
+        }
+        
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to create conversation');
       }
 
       const data = await response.json();
       setLoading(false);
-      // Navigate to the new conversation using the conversation ID
       router.push(`/seeMessages?conversationId=${data.id}`);
 
     } catch (err) {
@@ -204,7 +234,7 @@ const NewMessage = () => {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0} // Adjust this offset if needed
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.push('/messaging')}>
@@ -239,7 +269,6 @@ const NewMessage = () => {
               <Text>{item.firstName} {item.lastName}</Text>
             </TouchableOpacity>
           )}
-          // Add flexGrow: 1 to FlatList to ensure it takes available space
           contentContainerStyle={{ flexGrow: 1 }}
         />
       )}

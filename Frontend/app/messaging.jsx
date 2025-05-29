@@ -1,21 +1,21 @@
 import { StyleSheet, Text, View, FlatList, ActivityIndicator, TouchableOpacity, Alert, Platform } from 'react-native';
 import React, { useEffect, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Link, useRouter } from 'expo-router'; // Import useRouter
+import * as SecureStore from 'expo-secure-store';
+import { Link, useRouter } from 'expo-router';
 
 const Messaging = () => {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const router = useRouter(); // Initialize router
+  const router = useRouter();
 
-  // Function to retrieve the JWT token from AsyncStorage
+  // Function to retrieve the JWT token from SecureStore
   const getToken = async () => {
     try {
-      const token = await AsyncStorage.getItem('authToken'); // Using 'authToken' as in CreatePosts
+      const token = await SecureStore.getItemAsync('authToken');
       return token;
     } catch (e) {
-      console.error("Failed to load token from storage", e);
+      console.error("Failed to load token from secure storage", e);
       return null;
     }
   };
@@ -63,8 +63,7 @@ const Messaging = () => {
   }, []);
 
   const handleNewMessagePress = () => {
-    // Navigate to the screen where a new message can be started
-    router.push('/newMessage'); // Assuming you have a /newMessage route
+    router.push('/newMessage');
   };
 
   return (
@@ -78,7 +77,6 @@ const Messaging = () => {
             <Text style={styles.newMessageButtonText}>New Message</Text>
           </TouchableOpacity>
         </View>
-        {/* <Text style={styles.headerText}>Your Conversations</Text> */}
       </View>
       {loading ? (
         <View style={styles.centered}>
@@ -206,7 +204,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#333',
-    
   },
   lastMessage: {
     fontSize: 14,
