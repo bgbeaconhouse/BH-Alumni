@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, FlatList, ActivityIndicator, Image, TextInput, Modal, ScrollView, Dimensions, Alert } from 'react-native';
-import { Video } from 'expo-av'; // Import Video component
+import { VideoView, useVideoPlayer } from 'expo-video'; // Updated import
 import { Link, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Feather } from '@expo/vector-icons'; // For the play icon
@@ -9,13 +9,35 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 const PostVideo = ({ videoUrl, thumbnailUrl }) => {
   const [modalVisible, setModalVisible] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  
+  // Create video player instance
+  const player = useVideoPlayer(videoUrl, (player) => {
+    player.loop = false;
+    player.muted = false;
+  });
+
+  // Handle play/pause events
+  useEffect(() => {
+    const subscription = player.addListener('playingChange', (isPlaying) => {
+      setIsPlaying(isPlaying);
+    });
+
+    return () => {
+      subscription?.remove();
+    };
+  }, [player]);
 
   const openModal = () => {
     setModalVisible(true);
+    player.play();
   };
 
   const closeModal = () => {
     setModalVisible(false);
+    player.pause();
+    // Remove the seekTo call since it's not available
+    // player.seekTo(0); // This line causes the error
   };
 
   return (
@@ -38,12 +60,12 @@ const PostVideo = ({ videoUrl, thumbnailUrl }) => {
         onRequestClose={closeModal}
       >
         <View style={styles.modalContainer}>
-          <Video
-            source={{ uri: videoUrl }}
+          <VideoView
             style={styles.modalVideo}
-            controls={true}
-            resizeMode="contain"
-            shouldPlay
+            player={player}
+            allowsFullscreen
+            allowsPictureInPicture
+            nativeControls
           />
           <TouchableOpacity style={styles.closeButton} onPress={closeModal}>
             <Text style={styles.closeButtonText}>Close</Text>

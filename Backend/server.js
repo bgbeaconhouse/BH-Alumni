@@ -9,7 +9,11 @@ const PORT = 3000;
 
 app.use(express.json());
 app.use(require("morgan")("dev"));
-app.use('/uploads', express.static('uploads'));
+// The static serving for /uploads is now handled within the conversations router,
+// so you can remove or comment out this line if you only serve uploads via that router.
+// If you have other static files in 'uploads' that are not handled by the conversations router,
+// you might keep this. For optimized image loading, the conversations router's static serving is preferred.
+// app.use('/uploads', express.static('uploads'));
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const verifyToken = require("./verify");
@@ -60,6 +64,10 @@ wss.on('connection', (ws, req) => {
                         console.warn('Received message from unauthenticated WebSocket client.');
                         return;
                     }
+                    // IMPORTANT: Messages with media attachments should be sent via the HTTP POST endpoint
+                    // This WebSocket message handling should primarily be for text-only messages
+                    // or for receiving broadcasted messages from the server.
+                    // The client-side `sendMessage` function should use the HTTP POST route for new messages.
                     if (!conversationId || (!content && !parsedMessage.media)) {
                         console.warn('Invalid message format received:', parsedMessage);
                         return;
@@ -259,8 +267,8 @@ app.post("/api/admin/approve/:userId", verifyToken, async (req, res, next) => {
     }
 });
 
-// Pass wss and connectedClients to the conversations router
-app.use("/api/conversations", require("./api/conversations")(wss, connectedClients));
+// Pass wss, connectedClients, AND the 'app' instance to the conversations router
+app.use("/api/conversations", require("./api/conversations")(wss, connectedClients, app)); // <-- Changed here
 
 // Your other existing API routes from './api'
 // Make sure to adjust other routes if they also need access to wss/connectedClients

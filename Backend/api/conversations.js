@@ -6,18 +6,25 @@ const prisma = require("../prisma");
 const verifyToken = require("../verify");
 const path = require('path');
 const fs = require('fs').promises;
+const sharp = require('sharp'); // Import sharp for image processing
 
 // Export a function that accepts wss and connectedClients
-module.exports = (wss, connectedClients) => { // <-- Key change here
+module.exports = (wss, connectedClients, app) => { // <-- Added 'app' parameter to attach static middleware
+
+    // Define upload directories
+    const UPLOAD_DIR = 'uploads/';
+    const OPTIMIZED_IMAGES_DIR = path.join(UPLOAD_DIR, 'optimized/');
+    const ORIGINAL_IMAGES_DIR = path.join(UPLOAD_DIR, 'originals/'); // Optional: to keep original files
+
+    // Ensure upload directories exist
+    fs.mkdir(OPTIMIZED_IMAGES_DIR, { recursive: true }).catch(console.error);
+    fs.mkdir(ORIGINAL_IMAGES_DIR, { recursive: true }).catch(console.error);
 
     // Configure Multer for disk storage
     const storage = multer.diskStorage({
         destination: function (req, file, cb) {
-            const uploadPath = 'uploads/';
-            // Create the directory if it doesn't exist
-            fs.mkdir(uploadPath, { recursive: true }).then(() => {
-                cb(null, uploadPath);
-            }).catch(err => cb(err));
+            // Store original files in a separate folder
+            cb(null, ORIGINAL_IMAGES_DIR);
         },
         filename: function (req, file, cb) {
             const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -32,15 +39,34 @@ module.exports = (wss, connectedClients) => { // <-- Key change here
         if (allowedMimeTypes.includes(file.mimetype)) {
             cb(null, true);
         } else {
-            cb(null, false);
+            // Reject files that are not images or videos
+            cb(new Error('Invalid file type. Only images and videos are allowed.'), false);
         }
     };
 
     const upload = multer({
         storage: storage,
         fileFilter: fileFilter,
-        limits: { fileSize: 100 * 1024 * 1024 } // Optional: limit file size to 10MB
+        limits: { fileSize: 100 * 1024 * 1024 } // Limit file size to 100MB
     }).array('media', 10); // 'media' is the field name for files
+
+    // Serve static files from the uploads directory with caching headers
+    // This should ideally be done in your main app.js or server.js file once for all static assets.
+    // However, for demonstration, we'll add it here.
+    // Make sure 'app' (the express app instance) is passed to this module.
+    if (app) {
+        app.use('/uploads', express.static(UPLOAD_DIR, {
+            maxAge: '1h', // Cache static files for 1 hour
+            immutable: true, // Indicates that the file will not change
+            setHeaders: (res, path, stat) => {
+                // Set ETag for better caching validation
+                res.set('ETag', `"${stat.size}-${stat.mtime.getTime()}"`);
+            }
+        }));
+    } else {
+        console.warn("Express app instance not provided. Static file serving and caching headers might not be configured correctly.");
+    }
+
 
     // Get all conversations of user
     router.get("/", verifyToken, async (req, res, next) => {
@@ -165,7 +191,7 @@ module.exports = (wss, connectedClients) => { // <-- Key change here
         try {
             const { conversationId } = req.params;
             const { content } = req.body;
-            const files = req.files;
+            const files = req.files; // This will contain the original uploaded files
             const senderId = req.userId;
 
             if (!content && (!files || files.length === 0)) {
@@ -186,11 +212,23 @@ module.exports = (wss, connectedClients) => { // <-- Key change here
 
                 for (const file of files) {
                     const fileExtension = path.extname(file.originalname).toLowerCase();
-                    // Store the full URL for the attachment
-                    const fileUrl = `/uploads/${file.filename}`; // Assuming 'uploads/' is served statically
+                    const originalFilePath = file.path; // Path to the original file saved by Multer
+
                     if (['.jpg', '.jpeg', '.png', '.gif'].includes(fileExtension)) {
+                        // Process image with sharp
+                        const optimizedFilename = `optimized-${file.filename}`;
+                        const optimizedFilePath = path.join(OPTIMIZED_IMAGES_DIR, optimizedFilename);
+                        const fileUrl = `/uploads/optimized/${optimizedFilename}`; // URL for the optimized image
+
+                        await sharp(originalFilePath)
+                            .resize({ width: 800, withoutEnlargement: true }) // Resize to max 800px width, don't enlarge
+                            .toFormat('jpeg', { quality: 80 }) // Convert to JPEG with 80% quality
+                            .toFile(optimizedFilePath);
+
                         imageAttachments.push({ messageId: newMessage.id, url: fileUrl });
                     } else if (['.mp4', '.mpeg', '.mov'].includes(fileExtension)) {
+                        // Video files are not processed with sharp, use original path
+                        const fileUrl = `/uploads/originals/${file.filename}`; // URL for the original video
                         videoAttachments.push({ messageId: newMessage.id, url: fileUrl });
                     }
                 }

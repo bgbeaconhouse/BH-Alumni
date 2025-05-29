@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import {
     StyleSheet,
     Text,
@@ -19,7 +19,46 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
-import { Video } from 'expo-av'; // Import Video
+import { Video } from 'expo-av';
+
+// Memoized Message Item Component to prevent unnecessary re-renders
+const MessageItem = memo(({ item, currentUserId, onImagePress }) => {
+    const isCurrentUserSender = item.senderId === currentUserId;
+
+    return (
+        <View style={[styles.messageBubble, isCurrentUserSender ? styles.sentMessage : styles.receivedMessage]}>
+            <Text style={styles.senderName}>{isCurrentUserSender ? 'You' : item.sender?.firstName}</Text>
+            <Text style={styles.messageText}>{item.content}</Text>
+            {(item.imageAttachments && item.imageAttachments.length > 0) && (
+                item.imageAttachments.map(attachment => (
+                    <TouchableOpacity
+                        key={attachment.id}
+                        onPress={() => onImagePress(`http://192.168.0.34:3000${attachment.url}`)}
+                    >
+                        <Image
+                            source={{ uri: `http://192.168.0.34:3000${attachment.url}` }}
+                            style={styles.imageAttachment}
+                            resizeMode="cover"
+                            onError={(error) => console.error("Image loading error:", error)}
+                        />
+                    </TouchableOpacity>
+                ))
+            )}
+            {(item.videoAttachments && item.videoAttachments.length > 0) && (
+                item.videoAttachments.map(attachment => (
+                    <Video
+                        key={attachment.id}
+                        source={{ uri: `http://192.168.0.34:3000${attachment.url}` }}
+                        style={styles.videoAttachment}
+                        useNativeControls
+                        resizeMode="cover"
+                        isLooping
+                    />
+                ))
+            )}
+        </View>
+    );
+});
 
 const SeeMessages = () => {
     const { conversationId } = useLocalSearchParams();
@@ -105,15 +144,34 @@ const SeeMessages = () => {
 
     const sendMessage = async () => {
         if (newMessage.trim()) {
-            if (websocket.current && websocket.current.readyState === WebSocket.OPEN) {
-                const messagePayload = {
-                    conversationId: parseInt(conversationId),
-                    content: newMessage.trim(),
-                };
-                websocket.current.send(JSON.stringify(messagePayload));
+            // Send text messages via HTTP POST, not WebSocket directly for initial send.
+            // The server will then broadcast it via WebSocket.
+            const token = await getToken();
+            if (!token) {
+                Alert.alert("Error", "Authentication token not found.");
+                return;
+            }
+
+            try {
+                const response = await fetch(`http://192.168.0.34:3000/api/conversations/${conversationId}/messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ content: newMessage.trim() }),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Failed to send message');
+                }
+
+                // Message will be added to state via WebSocket broadcast, so no need to update state here immediately
                 setNewMessage('');
-            } else {
-                Alert.alert("Error", "WebSocket is not connected. Please try again.");
+            } catch (err) {
+                console.error("Error sending message via HTTP:", err);
+                Alert.alert("Error", err.message || "Could not send message.");
             }
         }
     };
@@ -159,7 +217,7 @@ const SeeMessages = () => {
             const formData = new FormData();
             formData.append('media', {
                 uri: media.uri,
-                name: media.fileName || 'file',
+                name: media.fileName || `media-${Date.now()}.${media.mimeType.split('/')[1]}`, // Ensure a unique name with extension
                 type: media.mimeType,
             });
 
@@ -168,7 +226,7 @@ const SeeMessages = () => {
             const response = await fetch(`http://192.168.0.34:3000/api/conversations/${conversationId}/messages`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'multipart/form-data',
+                    // 'Content-Type': 'multipart/form-data' is automatically set by FormData
                     'Authorization': `Bearer ${token}`,
                 },
                 body: formData,
@@ -182,14 +240,20 @@ const SeeMessages = () => {
                 throw new Error(errorData.message || 'Failed to send media');
             }
 
-            setLoading(false);
+            // Message will be added to state via WebSocket broadcast
         } catch (err) {
             console.error("Error sending media:", err);
             setError(err.message || "Failed to send media.");
             Alert.alert("Error", err.message || "Could not send media.");
+        } finally {
             setLoading(false);
         }
     };
+
+    const handleImagePress = useCallback((imageUrl) => {
+        setSelectedImage(imageUrl);
+        setModalVisible(true);
+    }, []);
 
     useEffect(() => {
         let isMounted = true;
@@ -199,6 +263,7 @@ const SeeMessages = () => {
             const userId = await getUserId();
             if (token && userId) {
                 try {
+                    // Ensure the WebSocket URL is correct for your backend setup
                     websocket.current = new WebSocket(`ws://192.168.0.34:3000/?token=${token}`);
 
                     websocket.current.onopen = () => {
@@ -208,9 +273,17 @@ const SeeMessages = () => {
                     websocket.current.onmessage = (event) => {
                         try {
                             const parsedMessage = JSON.parse(event.data);
+                            // Check if the message is for the current conversation and is a new message type
                             if (parsedMessage.type === 'newMessage' && parsedMessage.message.conversationId === parseInt(conversationId)) {
                                 if (isMounted) {
-                                    setMessages(prevMessages => [...prevMessages, parsedMessage.message]);
+                                    // Ensure the message is not already in the list (e.g., if it was sent by this client)
+                                    setMessages(prevMessages => {
+                                        const messageExists = prevMessages.some(msg => msg.id === parsedMessage.message.id);
+                                        if (!messageExists) {
+                                            return [...prevMessages, parsedMessage.message];
+                                        }
+                                        return prevMessages;
+                                    });
                                 }
                             }
                         } catch (e) {
@@ -219,12 +292,15 @@ const SeeMessages = () => {
                     };
 
                     websocket.current.onclose = () => {
-                        console.log("WebSocket disconnected");
+                        console.log("WebSocket disconnected. Attempting to reconnect...");
+                        // Implement a backoff strategy for reconnection attempts if needed
                         setTimeout(connectWebSocket, 3000);
                     };
 
                     websocket.current.onerror = (error) => {
                         console.error("WebSocket error:", error);
+                        // Consider closing and attempting to reconnect on error
+                        websocket.current.close();
                     };
                 } catch (error) {
                     console.error("Error connecting to WebSocket:", error);
@@ -245,58 +321,26 @@ const SeeMessages = () => {
                 websocket.current.close();
             }
         };
-    }, [getUserId, conversationId]);
+    }, [getUserId, conversationId]); // Dependencies for useEffect
 
     useEffect(() => {
+        // Scroll to end when messages load or new messages arrive
         if (messages.length > 0 && !loading) {
+            // Use a small timeout to ensure FlatList has rendered new items
             setTimeout(() => {
-                flatListRef.current?.scrollToEnd({ animated: false });
+                flatListRef.current?.scrollToEnd({ animated: true }); // Changed to animated: true for smoother scroll
             }, 100);
         }
     }, [messages, loading]);
 
-    const renderMessageItem = ({ item }) => {
-        const isCurrentUserSender = item.senderId === currentUserId;
-
-        return (
-            <View style={[styles.messageBubble, isCurrentUserSender ? styles.sentMessage : styles.receivedMessage]}>
-                <Text style={styles.senderName}>{isCurrentUserSender ? 'You' : item.sender?.firstName}</Text>
-                <Text style={styles.messageText}>{item.content}</Text>
-                {(item.imageAttachments && item.imageAttachments.length > 0) && (
-                    item.imageAttachments.map(attachment => (
-                         <TouchableOpacity
-            key={attachment.id}
-            onPress={() => {
-                const imageUrl = `http://192.168.0.34:3000${attachment.url}`;
-                console.log("Tapped image URL:", imageUrl); // Log the constructed URL
-                setSelectedImage(imageUrl);
-                setModalVisible(true);
-            }}
-        >
-            <Image
-                source={{ uri: `http://192.168.0.34:3000${attachment.url}` }}
-                style={styles.imageAttachment}
-                resizeMode="cover"
-                onError={(error) => console.error("Image loading error:", error)}
-            />
-        </TouchableOpacity>
-                    ))
-                )}
-                {(item.videoAttachments && item.videoAttachments.length > 0) && (
-                    item.videoAttachments.map(attachment => (
-                        <Video
-                            key={attachment.id}
-                            source={{ uri: `http://192.168.0.34:3000${attachment.url}` }}
-                            style={styles.videoAttachment}
-                            useNativeControls
-                            resizeMode="cover"
-                            isLooping
-                        />
-                    ))
-                )}
-            </View>
-        );
-    };
+    // Pass necessary props to the memoized MessageItem
+    const renderMessageItem = useCallback(({ item }) => (
+        <MessageItem
+            item={item}
+            currentUserId={currentUserId}
+            onImagePress={handleImagePress}
+        />
+    ), [currentUserId, handleImagePress]); // Dependencies for useCallback
 
     if (loading && messages.length === 0) {
         return (
@@ -337,6 +381,11 @@ const SeeMessages = () => {
                     keyExtractor={(item) => item.id.toString()}
                     renderItem={renderMessageItem}
                     contentContainerStyle={styles.messagesContainer}
+                    // Add these props for better performance with large lists
+                    initialNumToRender={10} // Render 10 items initially
+                    maxToRenderPerBatch={5} // Render 5 items per batch
+                    windowSize={21} // Keep 21 items in memory (10 above, 10 below, 1 current)
+                    removeClippedSubviews={true} // Unmount components that go off-screen
                 />
                 <View style={styles.inputContainer}>
                     <TouchableOpacity onPress={pickMedia} style={styles.mediaButton}>
@@ -520,7 +569,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#ccc',
         justifyContent: 'center',
         alignItems: 'center',
-       marginRight: 10,
+        marginRight: 10,
     },
     mediaButtonText: {
         fontSize: 24,
@@ -545,17 +594,15 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: 'rgba(0, 0, 0, 0.9)',
     },
-    // modalScrollView: {
-    //   flex: 1, // Make ScrollView take available modal space
-    // width: '100%',
-    // height: '80%'
-    // },
+    modalScrollView: {
+        flex: 1, // Make ScrollView take available modal space
+        width: '100%',
+        height: '80%',
+    },
     modalImage: {
-     width: '100%',
-    height: '100%', // Let height adjust based on content aspect ratio
-    aspectRatio: 1, // Try forcing a 1:1 aspect ratio initially
-   
- 
+        width: '100%',
+        height: undefined, // Set height to undefined to allow aspect ratio to govern
+        aspectRatio: 1, // Maintain aspect ratio
     },
     closeButton: {
         position: 'absolute',
