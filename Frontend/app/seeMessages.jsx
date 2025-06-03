@@ -209,9 +209,9 @@ const SeeMessages = () => {
         }
     };
 
-    const sendMessage = async () => {
+   const sendMessage = async () => {
     if (newMessage.trim()) {
-        console.log("Sending text message:", newMessage.trim()); // Add this
+        console.log("Sending text message:", newMessage.trim());
         
         const token = await getToken();
         if (!token) {
@@ -229,17 +229,37 @@ const SeeMessages = () => {
                 body: JSON.stringify({ content: newMessage.trim() }),
             });
 
-            console.log("Text message response:", response.status); // Add this
+            console.log("Text message response:", response.status);
 
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.message || 'Failed to send message');
             }
 
-            const responseData = await response.json(); // Add this
-            console.log("Text message sent successfully:", responseData); // Add this
+            const responseData = await response.json();
+            console.log("Text message sent successfully:", responseData);
 
+            // Clear input immediately
             setNewMessage('');
+            
+            // MANUALLY ADD THE MESSAGE TO STATE since WebSocket isn't sending it back
+            setMessages(prevMessages => {
+                // Check if message already exists (in case WebSocket does work sometimes)
+                const messageExists = prevMessages.some(msg => msg.id === responseData.id);
+                
+                if (!messageExists) {
+                    const newMessages = [...prevMessages, responseData];
+                    
+                    // Scroll to end
+                    setTimeout(() => {
+                        flatListRef.current?.scrollToEnd({ animated: true });
+                    }, 100);
+                    
+                    return newMessages;
+                }
+                return prevMessages;
+            });
+            
         } catch (err) {
             console.error("Error sending message via HTTP:", err);
             Alert.alert("Error", err.message || "Could not send message.");
@@ -291,9 +311,6 @@ const handleSendMedia = async (media, retryCount = 0) => {
         return;
     }
 
-    setLoading(true);
-    setError(null);
-
     try {
         console.log("Media URI in handleSendMedia:", media.uri);
         console.log("Media Type:", media.mimeType);
@@ -305,15 +322,13 @@ const handleSendMedia = async (media, retryCount = 0) => {
             type: media.mimeType,
         });
 
-        // Add timeout and better fetch configuration
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+        const timeoutId = setTimeout(() => controller.abort(), 120000);
 
         const response = await fetch(`http://192.168.0.34:3000/api/conversations/${conversationId}/messages`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
-                // Don't set Content-Type - let FormData handle it
             },
             body: formData,
             signal: controller.signal,
@@ -326,27 +341,41 @@ const handleSendMedia = async (media, retryCount = 0) => {
             throw new Error(errorData.message || 'Failed to send media');
         }
 
+        const responseData = await response.json();
+        console.log("Media sent successfully:", responseData);
+        
+        // MANUALLY ADD THE MEDIA MESSAGE TO STATE
+        setMessages(prevMessages => {
+            const messageExists = prevMessages.some(msg => msg.id === responseData.id);
+            
+            if (!messageExists) {
+                const newMessages = [...prevMessages, responseData];
+                
+                setTimeout(() => {
+                    flatListRef.current?.scrollToEnd({ animated: true });
+                }, 100);
+                
+                return newMessages;
+            }
+            return prevMessages;
+        });
+
     } catch (err) {
         console.error("Error sending media:", err);
         
-        // More specific retry logic
         if (retryCount < 3 && (
             err.name === 'AbortError' || 
             err.message.includes('Network request failed') ||
             err.message.includes('timeout')
         )) {
             console.log(`Retrying upload... Attempt ${retryCount + 1}`);
-            setLoading(false); // Reset loading state
             setTimeout(() => {
                 handleSendMedia(media, retryCount + 1);
-            }, 3000 * (retryCount + 1)); // Exponential backoff
+            }, 3000 * (retryCount + 1));
             return;
         }
         
-        setError(err.message || "Failed to send media.");
         Alert.alert("Error", err.message || "Could not send media.");
-    } finally {
-        setLoading(false);
     }
 };
 
@@ -370,22 +399,37 @@ const handleSendMedia = async (media, retryCount = 0) => {
                         console.log("WebSocket connected");
                     };
 
-                websocket.current.onmessage = (event) => {
+               websocket.current.onmessage = (event) => {
     try {
         const parsedMessage = JSON.parse(event.data);
-        console.log("WebSocket received:", parsedMessage); // Add this
+        console.log("WebSocket received:", parsedMessage);
         
-        if (parsedMessage.type === 'newMessage' && parsedMessage.message.conversationId === parseInt(conversationId)) {
+        if (parsedMessage.type === 'newMessage' && 
+            parsedMessage.message.conversationId === parseInt(conversationId)) {
+            
             if (isMounted) {
-                console.log("Adding message to state:", parsedMessage.message); // Add this
+                console.log("Adding message to state:", parsedMessage.message);
+                
                 setMessages(prevMessages => {
-                    const messageExists = prevMessages.some(msg => msg.id === parsedMessage.message.id);
+                    // More robust duplicate check
+                    const messageExists = prevMessages.some(msg => 
+                        msg.id === parsedMessage.message.id || 
+                        (msg.content === parsedMessage.message.content && 
+                         msg.senderId === parsedMessage.message.senderId &&
+                         Math.abs(new Date(msg.createdAt) - new Date(parsedMessage.message.createdAt)) < 1000)
+                    );
+                    
                     if (!messageExists) {
                         const newMessages = [...prevMessages, parsedMessage.message];
-                        // Force scroll to end after state update
+                        
+                        // Sort messages by createdAt to ensure proper order
+                        newMessages.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+                        
+                        // Scroll to end after state update
                         setTimeout(() => {
                             flatListRef.current?.scrollToEnd({ animated: true });
                         }, 100);
+                        
                         return newMessages;
                     }
                     return prevMessages;
