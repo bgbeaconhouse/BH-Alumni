@@ -19,6 +19,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage'; // Keep for migration
 import * as ImagePicker from 'expo-image-picker';
+
 import * as FileSystem from 'expo-file-system';
 import { Video } from 'expo-av';
 
@@ -110,14 +111,15 @@ const MessageItem = memo(({ item, currentUserId, onImagePress }) => {
             )}
             {(item.videoAttachments && item.videoAttachments.length > 0) && (
                 item.videoAttachments.map(attachment => (
-                    <Video
-                        key={attachment.id}
-                        source={{ uri: `http://192.168.0.34:3000${attachment.url}` }}
-                        style={styles.videoAttachment}
-                        useNativeControls
-                        resizeMode="cover"
-                        isLooping
-                    />
+                <Video
+    key={attachment.id}
+    source={{ uri: `http://192.168.0.34:3000${attachment.url}` }}
+    style={styles.videoAttachment}
+    useNativeControls
+    resizeMode="cover"
+    // Remove isLooping
+    shouldPlay={false} // Don't auto-play
+/>
                 ))
             )}
         </View>
@@ -136,6 +138,7 @@ const SeeMessages = () => {
     const websocket = useRef(null);
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedImage, setSelectedImage] = useState(null);
+    const [isUploading, setIsUploading] = useState(false);
 
     const getToken = async () => {
         try {
@@ -207,40 +210,50 @@ const SeeMessages = () => {
     };
 
     const sendMessage = async () => {
-        if (newMessage.trim()) {
-            // Send text messages via HTTP POST, not WebSocket directly for initial send.
-            // The server will then broadcast it via WebSocket.
-            const token = await getToken();
-            if (!token) {
-                Alert.alert("Error", "Authentication token not found.");
-                return;
-            }
-
-            try {
-                const response = await fetch(`http://192.168.0.34:3000/api/conversations/${conversationId}/messages`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({ content: newMessage.trim() }),
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || 'Failed to send message');
-                }
-
-                // Message will be added to state via WebSocket broadcast, so no need to update state here immediately
-                setNewMessage('');
-            } catch (err) {
-                console.error("Error sending message via HTTP:", err);
-                Alert.alert("Error", err.message || "Could not send message.");
-            }
+    if (newMessage.trim()) {
+        console.log("Sending text message:", newMessage.trim()); // Add this
+        
+        const token = await getToken();
+        if (!token) {
+            Alert.alert("Error", "Authentication token not found.");
+            return;
         }
-    };
+
+        try {
+            const response = await fetch(`http://192.168.0.34:3000/api/conversations/${conversationId}/messages`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({ content: newMessage.trim() }),
+            });
+
+            console.log("Text message response:", response.status); // Add this
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to send message');
+            }
+
+            const responseData = await response.json(); // Add this
+            console.log("Text message sent successfully:", responseData); // Add this
+
+            setNewMessage('');
+        } catch (err) {
+            console.error("Error sending message via HTTP:", err);
+            Alert.alert("Error", err.message || "Could not send message.");
+        }
+    }
+};
 
     const pickMedia = async () => {
+          if (isUploading) {
+        Alert.alert("Please wait", "Another upload is in progress");
+        return;
+    }
+       
+       
         let permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
         if (permissionResult.granted === false) {
@@ -249,70 +262,93 @@ const SeeMessages = () => {
         }
 
         let pickerResult = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.All,
-            allowsEditing: Platform.OS === 'ios' ? true : false,
-            aspect: [4, 3],
-            quality: 1,
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        allowsEditing: Platform.OS === 'ios' ? true : false,
+        aspect: [4, 3],
+        quality: 0.7, // Reduce quality to 70%
+        videoMaxDuration: 30, // Limit videos to 30 seconds
+    });
+
+    if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
+        const selectedMedia = pickerResult.assets[0];
+        
+        // Check file size before proceeding
+     
+        
+        setIsUploading(true);
+        await handleSendMedia(selectedMedia);
+
+        setTimeout(() => {
+            setIsUploading(false);
+        }, 2000);
+    }
+};
+
+const handleSendMedia = async (media, retryCount = 0) => {
+    const token = await getToken();
+    if (!token) {
+        Alert.alert("Error", "Authentication token not found.");
+        return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+        console.log("Media URI in handleSendMedia:", media.uri);
+        console.log("Media Type:", media.mimeType);
+
+        const formData = new FormData();
+        formData.append('media', {
+            uri: media.uri,
+            name: media.fileName || `media-${Date.now()}.${media.mimeType.split('/')[1]}`,
+            type: media.mimeType,
         });
 
-        console.log("Picker Result:", pickerResult);
+        // Add timeout and better fetch configuration
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
 
-        if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
-            const selectedMedia = pickerResult.assets[0];
-            console.log("URI before handleSendMedia:", selectedMedia.uri);
-            handleSendMedia(selectedMedia);
+        const response = await fetch(`http://192.168.0.34:3000/api/conversations/${conversationId}/messages`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                // Don't set Content-Type - let FormData handle it
+            },
+            body: formData,
+            signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to send media');
         }
-    };
 
-    const handleSendMedia = async (media) => {
-        const token = await getToken();
-        if (!token) {
-            Alert.alert("Error", "Authentication token not found.");
+    } catch (err) {
+        console.error("Error sending media:", err);
+        
+        // More specific retry logic
+        if (retryCount < 3 && (
+            err.name === 'AbortError' || 
+            err.message.includes('Network request failed') ||
+            err.message.includes('timeout')
+        )) {
+            console.log(`Retrying upload... Attempt ${retryCount + 1}`);
+            setLoading(false); // Reset loading state
+            setTimeout(() => {
+                handleSendMedia(media, retryCount + 1);
+            }, 3000 * (retryCount + 1)); // Exponential backoff
             return;
         }
-
-        setLoading(true);
-        setError(null);
-
-        try {
-            console.log("Media URI in handleSendMedia:", media.uri);
-            console.log("Media Type:", media.mimeType);
-
-            const formData = new FormData();
-            formData.append('media', {
-                uri: media.uri,
-                name: media.fileName || `media-${Date.now()}.${media.mimeType.split('/')[1]}`, // Ensure a unique name with extension
-                type: media.mimeType,
-            });
-
-            console.log("FormData contents:", formData._parts ? formData._parts.length : 0);
-
-            const response = await fetch(`http://192.168.0.34:3000/api/conversations/${conversationId}/messages`, {
-                method: 'POST',
-                headers: {
-                    // 'Content-Type': 'multipart/form-data' is automatically set by FormData
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: formData,
-            });
-
-            console.log("Response:", response);
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                console.log("Error Data:", errorData);
-                throw new Error(errorData.message || 'Failed to send media');
-            }
-
-            // Message will be added to state via WebSocket broadcast
-        } catch (err) {
-            console.error("Error sending media:", err);
-            setError(err.message || "Failed to send media.");
-            Alert.alert("Error", err.message || "Could not send media.");
-        } finally {
-            setLoading(false);
-        }
-    };
+        
+        setError(err.message || "Failed to send media.");
+        Alert.alert("Error", err.message || "Could not send media.");
+    } finally {
+        setLoading(false);
+    }
+};
 
     const handleImagePress = useCallback((imageUrl) => {
         setSelectedImage(imageUrl);
@@ -334,26 +370,32 @@ const SeeMessages = () => {
                         console.log("WebSocket connected");
                     };
 
-                    websocket.current.onmessage = (event) => {
-                        try {
-                            const parsedMessage = JSON.parse(event.data);
-                            // Check if the message is for the current conversation and is a new message type
-                            if (parsedMessage.type === 'newMessage' && parsedMessage.message.conversationId === parseInt(conversationId)) {
-                                if (isMounted) {
-                                    // Ensure the message is not already in the list (e.g., if it was sent by this client)
-                                    setMessages(prevMessages => {
-                                        const messageExists = prevMessages.some(msg => msg.id === parsedMessage.message.id);
-                                        if (!messageExists) {
-                                            return [...prevMessages, parsedMessage.message];
-                                        }
-                                        return prevMessages;
-                                    });
-                                }
-                            }
-                        } catch (e) {
-                            console.error("Error parsing WebSocket message:", e);
-                        }
-                    };
+                websocket.current.onmessage = (event) => {
+    try {
+        const parsedMessage = JSON.parse(event.data);
+        console.log("WebSocket received:", parsedMessage); // Add this
+        
+        if (parsedMessage.type === 'newMessage' && parsedMessage.message.conversationId === parseInt(conversationId)) {
+            if (isMounted) {
+                console.log("Adding message to state:", parsedMessage.message); // Add this
+                setMessages(prevMessages => {
+                    const messageExists = prevMessages.some(msg => msg.id === parsedMessage.message.id);
+                    if (!messageExists) {
+                        const newMessages = [...prevMessages, parsedMessage.message];
+                        // Force scroll to end after state update
+                        setTimeout(() => {
+                            flatListRef.current?.scrollToEnd({ animated: true });
+                        }, 100);
+                        return newMessages;
+                    }
+                    return prevMessages;
+                });
+            }
+        }
+    } catch (e) {
+        console.error("Error parsing WebSocket message:", e);
+    }
+};
 
                     websocket.current.onclose = () => {
                         console.log("WebSocket disconnected. Attempting to reconnect...");
@@ -457,6 +499,7 @@ const SeeMessages = () => {
                     maxToRenderPerBatch={5} // Render 5 items per batch
                     windowSize={21} // Keep 21 items in memory (10 above, 10 below, 1 current)
                     removeClippedSubviews={true} // Unmount components that go off-screen
+           
                 />
                 <View style={styles.inputContainer}>
                     <TouchableOpacity onPress={pickMedia} style={styles.mediaButton}>

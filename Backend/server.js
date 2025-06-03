@@ -7,7 +7,8 @@ const { WebSocketServer } = require('ws');
 const prisma = require("./prisma");
 const PORT = 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ limit: '200mb', extended: true }));
 app.use(require("morgan")("dev"));
 // The static serving for /uploads is now handled within the conversations router,
 // so you can remove or comment out this line if you only serve uploads via that router.
@@ -283,7 +284,12 @@ app.use((err, req, res, next) => {
 });
 
 // Start the HTTP server (which also hosts the WebSocket server)
-server.listen(PORT, '0.0.0.0', () => {
+const httpServer = server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server listening on port ${PORT}.`);
     console.log(`WebSocket server also running on ws://localhost:${PORT}`);
 });
+
+// Increase server timeout to 5 minutes
+httpServer.timeout = 300000; // 5 minutes (300 seconds)
+httpServer.keepAliveTimeout = 300000;
+httpServer.headersTimeout = 300000;

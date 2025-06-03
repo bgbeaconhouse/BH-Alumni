@@ -1,14 +1,52 @@
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert } from 'react-native';
 import React from 'react';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Home = () => {
+  const router = useRouter();
+
+  const logout = async () => {
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Remove token from SecureStore
+              await SecureStore.deleteItemAsync('authToken');
+              
+              // Clear any AsyncStorage remnants
+              await AsyncStorage.removeItem('authToken');
+              await AsyncStorage.removeItem('userId');
+              await AsyncStorage.removeItem('token');
+              
+              // Navigate to login page and prevent going back
+              router.replace('/');
+              
+            } catch (error) {
+              console.error('Error during logout:', error);
+              // Even if there's an error, still navigate away for security
+              router.replace('/');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.logoutButton}>
-        <Link href="/" style={styles.logoutText}>
-          Logout
-        </Link>
+      <TouchableOpacity style={styles.logoutButton} onPress={logout}>
+        <Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>
 
       <View style={styles.centerContainer}>
@@ -71,7 +109,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 30,
     borderRadius: 10,
-    marginBottom: 20, // Added marginBottom here
+    marginBottom: 20,
     width: 200,
     alignItems: 'center',
   },
@@ -80,7 +118,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 30,
     borderRadius: 10,
-    marginBottom: 20, // Added marginBottom here
+    marginBottom: 20,
     width: 200,
     alignItems: 'center',
   },

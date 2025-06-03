@@ -5,6 +5,7 @@ const multer = require("multer");
 const prisma = require("../prisma");
 const verifyToken = require("../verify");
 const path = require('path');
+const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs').promises;
 const sharp = require('sharp'); // Import sharp for image processing
 
@@ -44,11 +45,35 @@ module.exports = (wss, connectedClients, app) => { // <-- Added 'app' parameter 
         }
     };
 
-    const upload = multer({
-        storage: storage,
-        fileFilter: fileFilter,
-        limits: { fileSize: 100 * 1024 * 1024 } // Limit file size to 100MB
-    }).array('media', 10); // 'media' is the field name for files
+ const upload = multer({
+    storage: storage,
+    fileFilter: fileFilter,
+    // Remove limits entirely - let compression handle the size
+}).array('media', 5);
+
+
+
+const compressVideo = (inputPath, outputPath) => {
+    return new Promise((resolve, reject) => {
+        ffmpeg(inputPath)
+            .videoCodec('libx264')
+            .audioCodec('aac')
+            .size('480x?') // More aggressive - reduce to 480p
+            .videoBitrate('500k') // Lower bitrate
+            .audioBitrate('64k') // Lower audio bitrate
+            .fps(24) // Reduce frame rate
+            .format('mp4')
+            .on('end', () => {
+                console.log('Video compression finished');
+                resolve();
+            })
+            .on('error', (err) => {
+                console.error('Video compression error:', err);
+                reject(err);
+            })
+            .save(outputPath);
+    });
+};
 
     // Serve static files from the uploads directory with caching headers
     // This should ideally be done in your main app.js or server.js file once for all static assets.
@@ -66,6 +91,9 @@ module.exports = (wss, connectedClients, app) => { // <-- Added 'app' parameter 
     } else {
         console.warn("Express app instance not provided. Static file serving and caching headers might not be configured correctly.");
     }
+
+
+
 
 
     // Get all conversations of user
@@ -227,10 +255,25 @@ module.exports = (wss, connectedClients, app) => { // <-- Added 'app' parameter 
 
                         imageAttachments.push({ messageId: newMessage.id, url: fileUrl });
                     } else if (['.mp4', '.mpeg', '.mov'].includes(fileExtension)) {
-                        // Video files are not processed with sharp, use original path
-                        const fileUrl = `/uploads/originals/${file.filename}`; // URL for the original video
-                        videoAttachments.push({ messageId: newMessage.id, url: fileUrl });
-                    }
+    // NEW: Compress video files
+    const compressedFilename = `compressed-${file.filename.replace(fileExtension, '.mp4')}`;
+    const compressedFilePath = path.join(OPTIMIZED_IMAGES_DIR, compressedFilename);
+    const fileUrl = `/uploads/optimized/${compressedFilename}`;
+
+    try {
+        await compressVideo(originalFilePath, compressedFilePath);
+        videoAttachments.push({ messageId: newMessage.id, url: fileUrl });
+        
+        // Optional: Delete original file to save space
+        await fs.unlink(originalFilePath);
+        console.log('Video compressed successfully');
+    } catch (compressionError) {
+        console.error('Video compression failed, using original:', compressionError);
+        // Fallback to original if compression fails
+        const fileUrl = `/uploads/originals/${file.filename}`;
+        videoAttachments.push({ messageId: newMessage.id, url: fileUrl });
+    }
+}
                 }
 
                 await prisma.imageAttachment.createMany({ data: imageAttachments });
