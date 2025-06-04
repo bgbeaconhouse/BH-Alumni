@@ -125,7 +125,10 @@ const Cart = () => {
           Total Amount: ${cartData.totalAmount}
         </Text>
         
-        <TouchableOpacity style={styles.checkoutButton}>
+        <TouchableOpacity 
+          style={styles.checkoutButton}
+          onPress={() => router.push('/checkout')}
+        >
           <Text style={styles.checkoutButtonText}>Proceed to Checkout</Text>
         </TouchableOpacity>
       </View>
