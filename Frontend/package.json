@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.1.2",
+    "@stripe/stripe-react-native": "^0.47.1",
     "expo": "~53.0.9",
     "expo-av": "~15.1.4",
     "expo-constants": "~17.1.6",
@@ -24,7 +25,7 @@
     "react": "19.0.0",
     "react-native": "0.79.2",
     "react-native-get-random-values": "^1.11.0",
-    "react-native-safe-area-context": "5.4.0",
+    "react-native-safe-area-context": "^5.4.0",
     "react-native-screens": "~4.10.0",
     "stream-browserify": "^3.0.0",
     "ws": "^8.18.2"
