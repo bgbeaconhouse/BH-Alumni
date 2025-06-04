@@ -75,9 +75,17 @@ const Shop = () => {
   if (loading && products.length === 0) {
     return (
       <View style={styles.container}>
-        <TouchableOpacity style={styles.backButton}>
-          <Link href="/home">Back</Link>
-        </TouchableOpacity>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton}>
+            <Link href="/home">Back</Link>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.cartButton}
+            onPress={() => router.push('/cart')}
+          >
+            <Text style={styles.cartButtonText}>View Cart</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#0000ff" />
           <Text>Loading products...</Text>
@@ -88,9 +96,17 @@ const Shop = () => {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.backButton}>
-        <Link href="/home">Back</Link>
-      </TouchableOpacity>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton}>
+          <Link href="/home">Back</Link>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.cartButton}
+          onPress={() => router.push('/cart')}
+        >
+          <Text style={styles.cartButtonText}>View Cart</Text>
+        </TouchableOpacity>
+      </View>
       
       <Text style={styles.title}>Shop</Text>
       
@@ -119,12 +135,25 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#fff',
   },
-  backButton: {
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 16,
+  },
+  backButton: {
     padding: 8,
     backgroundColor: '#f0f0f0',
     borderRadius: 8,
-    alignSelf: 'flex-start',
+  },
+  cartButton: {
+    padding: 8,
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+  },
+  cartButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
   title: {
     fontSize: 24,

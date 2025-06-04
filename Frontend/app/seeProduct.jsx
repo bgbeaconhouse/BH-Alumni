@@ -1,12 +1,61 @@
-import { StyleSheet, Text, View, TouchableOpacity, Image, ScrollView } from 'react-native'
+import { StyleSheet, Text, View, TouchableOpacity, Image, ScrollView, Alert } from 'react-native'
 import { Link, useLocalSearchParams, useRouter } from 'expo-router'
-import React from 'react'
+import React, { useState } from 'react'
+import * as SecureStore from 'expo-secure-store'
 
 const SeeProduct = () => {
   const { id, name, description, price, images } = useLocalSearchParams();
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
   
   const productImages = images ? JSON.parse(images) : [];
+
+  const addToCart = async () => {
+    try {
+      setLoading(true);
+      
+      // Get the auth token from SecureStore
+      const token = await SecureStore.getItemAsync('authToken');
+      
+      if (!token) {
+        Alert.alert('Error', 'Please log in to add items to cart');
+        return;
+      }
+
+      const response = await fetch('http://192.168.0.34:3000/api/cart', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          productId: parseInt(id),
+          quantity: 1
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert(
+          'Success!', 
+          'Item added to cart successfully',
+          [
+            { text: 'Continue Shopping', style: 'cancel' },
+            { text: 'View Cart', onPress: () => router.push('/cart') }
+          ]
+        );
+      } else {
+        Alert.alert('Error', data.error || 'Failed to add item to cart');
+      }
+
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      Alert.alert('Error', 'Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <ScrollView style={styles.container}>
@@ -30,8 +79,14 @@ const SeeProduct = () => {
         <Text style={styles.productDescription}>{description}</Text>
         <Text style={styles.productPrice}>${price}</Text>
         
-        <TouchableOpacity style={styles.addToCartButton}>
-          <Text style={styles.buttonText}>Add to Cart</Text>
+        <TouchableOpacity 
+          style={[styles.addToCartButton, loading && styles.disabledButton]} 
+          onPress={addToCart}
+          disabled={loading}
+        >
+          <Text style={styles.buttonText}>
+            {loading ? 'Adding...' : 'Add to Cart'}
+          </Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -89,6 +144,9 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 8,
     alignItems: 'center',
+  },
+  disabledButton: {
+    backgroundColor: '#ccc',
   },
   buttonText: {
     color: 'white',
