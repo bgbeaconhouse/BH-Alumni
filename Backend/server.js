@@ -5,23 +5,56 @@ const app = express();
 const http = require('http');
 const { WebSocketServer } = require('ws');
 const prisma = require("./prisma");
-const PORT = 3000;
+const PORT = process.env.PORT || 3000; // Fixed: Use environment PORT
 
-app.use(express.json({ limit: '200mb' }));
-app.use(express.urlencoded({ limit: '200mb', extended: true }));
-app.use(require("morgan")("dev"));
-// The static serving for /uploads is now handled within the conversations router,
-// so you can remove or comment out this line if you only serve uploads via that router.
-// If you have other static files in 'uploads' that are not handled by the conversations router,
-// you might keep this. For optimized image loading, the conversations router's static serving is preferred.
-// app.use('/uploads', express.static('uploads'));
+// Import required modules
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const verifyToken = require("./verify");
 const nodemailer = require('nodemailer');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY); // Fixed: Added stripe import
+
+// Stripe webhook BEFORE other middleware (raw body needed)
+app.post('/api/webhooks/stripe', express.raw({type: 'application/json'}), async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    let event;
+
+    try {
+        event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    } catch (err) {
+        console.log(`Webhook signature verification failed.`, err.message);
+        return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // Handle the event
+    switch (event.type) {
+        case 'payment_intent.succeeded':
+            const paymentIntent = event.data.object;
+            console.log('PaymentIntent was successful!', paymentIntent.id);
+            
+            // You can add additional logic here, like sending confirmation emails
+            // or updating inventory, etc.
+            break;
+        case 'payment_intent.payment_failed':
+            const failedPayment = event.data.object;
+            console.log('PaymentIntent failed!', failedPayment.id);
+            
+            // Handle failed payment
+            break;
+        default:
+            console.log(`Unhandled event type ${event.type}`);
+    }
+
+    res.json({received: true});
+});
+
+// Regular middleware AFTER webhook
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ limit: '200mb', extended: true }));
+app.use(require("morgan")("dev"));
 
 // Configure Nodemailer with your email service details
-const transporter = nodemailer.createTransport({
+const transporter = nodemailer.createTransporter({
     service: 'Gmail', // e.g., 'Gmail', 'Outlook'
     auth: {
         user: process.env.EMAIL_USER, // Your email address
@@ -131,7 +164,6 @@ wss.on('connection', (ws, req) => {
         ws.close();
     }
 });
-
 
 // Your existing API endpoints (registration, login, admin approval)
 app.post("/api/register", async (req, res, next) => {
@@ -266,40 +298,6 @@ app.post("/api/admin/approve/:userId", verifyToken, async (req, res, next) => {
     } catch (error) {
         next(error);
     }
-});
-
-// Optional: Stripe webhook endpoint for handling payment confirmations
-app.post('/api/webhooks/stripe', express.raw({type: 'application/json'}), async (req, res) => {
-    const sig = req.headers['stripe-signature'];
-    let event;
-
-    try {
-        event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-    } catch (err) {
-        console.log(`Webhook signature verification failed.`, err.message);
-        return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
-
-    // Handle the event
-    switch (event.type) {
-        case 'payment_intent.succeeded':
-            const paymentIntent = event.data.object;
-            console.log('PaymentIntent was successful!', paymentIntent.id);
-            
-            // You can add additional logic here, like sending confirmation emails
-            // or updating inventory, etc.
-            break;
-        case 'payment_intent.payment_failed':
-            const failedPayment = event.data.object;
-            console.log('PaymentIntent failed!', failedPayment.id);
-            
-            // Handle failed payment
-            break;
-        default:
-            console.log(`Unhandled event type ${event.type}`);
-    }
-
-    res.json({received: true});
 });
 
 // Pass wss, connectedClients, AND the 'app' instance to the conversations router
