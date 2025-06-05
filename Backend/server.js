@@ -268,6 +268,40 @@ app.post("/api/admin/approve/:userId", verifyToken, async (req, res, next) => {
     }
 });
 
+// Optional: Stripe webhook endpoint for handling payment confirmations
+app.post('/api/webhooks/stripe', express.raw({type: 'application/json'}), async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    let event;
+
+    try {
+        event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    } catch (err) {
+        console.log(`Webhook signature verification failed.`, err.message);
+        return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // Handle the event
+    switch (event.type) {
+        case 'payment_intent.succeeded':
+            const paymentIntent = event.data.object;
+            console.log('PaymentIntent was successful!', paymentIntent.id);
+            
+            // You can add additional logic here, like sending confirmation emails
+            // or updating inventory, etc.
+            break;
+        case 'payment_intent.payment_failed':
+            const failedPayment = event.data.object;
+            console.log('PaymentIntent failed!', failedPayment.id);
+            
+            // Handle failed payment
+            break;
+        default:
+            console.log(`Unhandled event type ${event.type}`);
+    }
+
+    res.json({received: true});
+});
+
 // Pass wss, connectedClients, AND the 'app' instance to the conversations router
 app.use("/api/conversations", require("./api/conversations")(wss, connectedClients, app)); // <-- Changed here
 
