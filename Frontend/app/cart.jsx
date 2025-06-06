@@ -19,7 +19,7 @@ const Cart = () => {
         return;
       }
 
-      const response = await fetch('http://192.168.0.34:3000/api/cart', {
+      const response = await fetch('https://bh-alumni-social-media-app.onrender.com/api/cart', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -50,7 +50,7 @@ const Cart = () => {
     <View style={styles.cartItem}>
       {item.product.images && item.product.images.length > 0 ? (
         <Image 
-          source={{ uri: `http://192.168.0.34:3000${item.product.images[0].url}` }} 
+          source={{ uri: `https://bh-alumni-social-media-app.onrender.com${item.product.images[0].url}` }} 
           style={styles.itemImage}
         />
       ) : (

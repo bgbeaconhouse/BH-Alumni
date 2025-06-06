@@ -98,10 +98,10 @@ const MessageItem = memo(({ item, currentUserId, onImagePress }) => {
                 item.imageAttachments.map(attachment => (
                     <TouchableOpacity
                         key={attachment.id}
-                        onPress={() => onImagePress(`http://192.168.0.34:3000${attachment.url}`)}
+                        onPress={() => onImagePress(`https://bh-alumni-social-media-app.onrender.com${attachment.url}`)}
                     >
                         <Image
-                            source={{ uri: `http://192.168.0.34:3000${attachment.url}` }}
+                            source={{ uri: `https://bh-alumni-social-media-app.onrender.com${attachment.url}` }}
                             style={styles.imageAttachment}
                             resizeMode="cover"
                             onError={(error) => console.error("Image loading error:", error)}
@@ -113,7 +113,7 @@ const MessageItem = memo(({ item, currentUserId, onImagePress }) => {
                 item.videoAttachments.map(attachment => (
                 <Video
     key={attachment.id}
-    source={{ uri: `http://192.168.0.34:3000${attachment.url}` }}
+    source={{ uri: `https://bh-alumni-social-media-app.onrender.com${attachment.url}` }}
     style={styles.videoAttachment}
     useNativeControls
     resizeMode="cover"
@@ -185,7 +185,7 @@ const SeeMessages = () => {
                 return;
             }
 
-            const response = await fetch(`http://192.168.0.34:3000/api/conversations/${conversationId}/messages?sort=createdAt`, {
+            const response = await fetch(`https://bh-alumni-social-media-app.onrender.com/api/conversations/${conversationId}/messages?sort=createdAt`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -220,7 +220,7 @@ const SeeMessages = () => {
         }
 
         try {
-            const response = await fetch(`http://192.168.0.34:3000/api/conversations/${conversationId}/messages`, {
+            const response = await fetch(`https://bh-alumni-social-media-app.onrender.com/api/conversations/${conversationId}/messages`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -325,7 +325,7 @@ const handleSendMedia = async (media, retryCount = 0) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 120000);
 
-        const response = await fetch(`http://192.168.0.34:3000/api/conversations/${conversationId}/messages`, {
+        const response = await fetch(`https://bh-alumni-social-media-app.onrender.com/api/conversations/${conversationId}/messages`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,

@@ -103,7 +103,7 @@ const NewMessage = () => {
         return;
       }
 
-      const response = await fetch(`http://192.168.0.34:3000/api/profiles?search=${searchTerm}`, {
+      const response = await fetch(`https://bh-alumni-social-media-app.onrender.com/api/profiles?search=${searchTerm}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -195,7 +195,7 @@ const NewMessage = () => {
 
       const recipientIds = selectedUsers.map(user => user.id);
 
-      const response = await fetch('http://192.168.0.34:3000/api/conversations', {
+      const response = await fetch('https://bh-alumni-social-media-app.onrender.com/api/conversations', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

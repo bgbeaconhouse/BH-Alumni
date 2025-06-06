@@ -19,7 +19,7 @@ const OrderDetails = () => {
         return;
       }
 
-      const response = await fetch(`http://192.168.0.34:3000/api/orders/${id}`, {
+      const response = await fetch(`https://bh-alumni-social-media-app.onrender.com/api/orders/${id}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -131,7 +131,7 @@ const OrderDetails = () => {
           <View key={index} style={styles.orderItem}>
             {item.product.images && item.product.images.length > 0 ? (
               <Image 
-                source={{ uri: `http://192.168.0.34:3000${item.product.images[0].url}` }} 
+                source={{ uri: `https://bh-alumni-social-media-app.onrender.com${item.product.images[0].url}` }} 
                 style={styles.itemImage}
               />
             ) : (

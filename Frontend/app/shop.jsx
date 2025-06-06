@@ -11,7 +11,7 @@ const Shop = () => {
 
   const fetchProducts = async (pageNum = 1) => {
     try {
-      const response = await fetch(`http://192.168.0.34:3000/api/products?page=${pageNum}&limit=10`);
+      const response = await fetch(`https://bh-alumni-social-media-app.onrender.com/api/products?page=${pageNum}&limit=10`);
       const data = await response.json();
       
       if (pageNum === 1) {
@@ -56,7 +56,7 @@ const Shop = () => {
   >
       {item.images && item.images.length > 0 ? (
        <Image 
-   source={{ uri: `http://192.168.0.34:3000${item.images[0].url}` }} 
+   source={{ uri: `https://bh-alumni-social-media-app.onrender.com${item.images[0].url}` }} 
    style={styles.productImage}
 />
       ) : (

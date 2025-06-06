@@ -28,7 +28,8 @@
     "react-native-safe-area-context": "^5.4.0",
     "react-native-screens": "~4.10.0",
     "stream-browserify": "^3.0.0",
-    "ws": "^8.18.2"
+    "ws": "^8.18.2",
+    "expo-dev-client": "~5.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"

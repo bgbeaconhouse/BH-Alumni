@@ -18,7 +18,7 @@ const Login = () => {
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://192.168.0.34:3000/api/login', { // Use your actual API endpoint
+      const response = await fetch('https://bh-alumni-social-media-app.onrender.com/api/login', { // Use your actual API endpoint
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

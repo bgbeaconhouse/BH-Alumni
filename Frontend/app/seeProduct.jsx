@@ -22,7 +22,7 @@ const SeeProduct = () => {
         return;
       }
 
-      const response = await fetch('http://192.168.0.34:3000/api/cart', {
+      const response = await fetch('https://bh-alumni-social-media-app.onrender.com/api/cart', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -65,7 +65,7 @@ const SeeProduct = () => {
       
       {productImages.length > 0 ? (
         <Image 
-          source={{ uri: `http://192.168.0.34:3000${productImages[0].url}` }} 
+          source={{ uri: `https://bh-alumni-social-media-app.onrender.com${productImages[0].url}` }} 
           style={styles.productImage}
         />
       ) : (

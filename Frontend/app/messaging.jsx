@@ -34,7 +34,7 @@ const Messaging = () => {
         return;
       }
 
-      const response = await fetch('http://192.168.0.34:3000/api/conversations', {
+      const response = await fetch('https://bh-alumni-social-media-app.onrender.com/api/conversations', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

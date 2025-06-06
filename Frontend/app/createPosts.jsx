@@ -72,7 +72,7 @@ const CreatePosts = () => {
     setIsSubmitting(true);
 
     try {
-      const apiUrl = 'http://192.168.0.34:3000/api/posts';
+      const apiUrl = 'https://bh-alumni-social-media-app.onrender.com/api/posts';
       const formData = new FormData();
 
       formData.append('content', content);

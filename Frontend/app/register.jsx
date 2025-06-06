@@ -27,7 +27,7 @@ const Register = () => {
         yearGraduated: parseInt(formData.yearGraduated, 10), // Convert to integer
       };
 
-      const response = await fetch('http://192.168.0.34:3000/api/register', {
+      const response = await fetch('https://bh-alumni-social-media-app.onrender.com/api/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

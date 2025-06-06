@@ -173,7 +173,7 @@ const Post = () => {
   const fetchPosts = useCallback(async () => {
     setRefreshing(true);
     try {
-      const response = await fetch('http://192.168.0.34:3000/api/posts');
+      const response = await fetch('https://bh-alumni-social-media-app.onrender.com/api/posts');
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -185,7 +185,7 @@ const Post = () => {
       data.forEach(async (post) => {
         try {
           // Fetch comments
-          const commentsResponse = await fetch(`http://192.168.0.34:3000/api/posts/${post.id}/comments`);
+          const commentsResponse = await fetch(`https://bh-alumni-social-media-app.onrender.com/api/posts/${post.id}/comments`);
           if (!commentsResponse.ok) {
             console.error(`Failed to fetch comments for post ${post.id}`);
           } else {
@@ -197,7 +197,7 @@ const Post = () => {
           }
 
           // Fetch likes count
-          const likesResponse = await fetch(`http://192.168.0.34:3000/api/posts/${post.id}/likes`);
+          const likesResponse = await fetch(`https://bh-alumni-social-media-app.onrender.com/api/posts/${post.id}/likes`);
           if (!likesResponse.ok) {
             console.error(`Failed to fetch likes for post ${post.id}`);
           } else {
@@ -210,7 +210,7 @@ const Post = () => {
 
           // Fetch user's like status
           if (token) {
-            const userLikeResponse = await fetch(`http://192.168.0.34:3000/api/posts/${post.id}/userLike`, {
+            const userLikeResponse = await fetch(`https://bh-alumni-social-media-app.onrender.com/api/posts/${post.id}/userLike`, {
               headers: {
                 'Authorization': `Bearer ${token}`,
               },
@@ -251,7 +251,7 @@ const Post = () => {
     }
 
     try {
-      const response = await fetch(`http://192.168.0.34:3000/api/posts/${postId}/like`, {
+      const response = await fetch(`https://bh-alumni-social-media-app.onrender.com/api/posts/${postId}/like`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -294,7 +294,7 @@ const Post = () => {
     setIsSubmittingComment((prev) => ({ ...prev, [postId]: true }));
 
     try {
-      const response = await fetch(`http://192.168.0.34:3000/api/posts/${postId}/comments`, {
+      const response = await fetch(`https://bh-alumni-social-media-app.onrender.com/api/posts/${postId}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -346,7 +346,7 @@ const Post = () => {
             setIsDeletingComment((prev) => ({ ...prev, [commentId]: true }));
 
             try {
-              const response = await fetch(`http://192.168.0.34:3000/api/posts/comments/${commentId}`, {
+              const response = await fetch(`https://bh-alumni-social-media-app.onrender.com/api/posts/comments/${commentId}`, {
                 method: 'DELETE',
                 headers: {
                   'Authorization': `Bearer ${token}`,
@@ -402,7 +402,7 @@ const Post = () => {
             setIsDeletingPost((prev) => ({ ...prev, [postId]: true }));
 
             try {
-              const response = await fetch(`http://192.168.0.34:3000/api/posts/${postId}`, {
+              const response = await fetch(`https://bh-alumni-social-media-app.onrender.com/api/posts/${postId}`, {
                 method: 'DELETE',
                 headers: {
                   'Authorization': `Bearer ${token}`,
@@ -433,7 +433,7 @@ const Post = () => {
   };
 
   const openImageModal = (images) => {
-    setModalImages(images.map(img => ({ uri: `http://192.168.0.34:3000/uploads/${img.url}` })));
+    setModalImages(images.map(img => ({ uri: `https://bh-alumni-social-media-app.onrender.com/uploads/${img.url}` })));
     setModalVisible(true);
   };
 
@@ -495,7 +495,7 @@ const Post = () => {
         {imageAttachments.length > 0 && (
           <TouchableOpacity onPress={() => openImageModal(imageAttachments)}>
             <Image
-              source={{ uri: `http://192.168.0.34:3000/uploads/${imageAttachments[0].url}` }}
+              source={{ uri: `https://bh-alumni-social-media-app.onrender.com/uploads/${imageAttachments[0].url}` }}
               style={styles.postImage}
               resizeMode="cover"
             />
@@ -508,8 +508,8 @@ const Post = () => {
         )}
         {videoAttachments.length > 0 && (
           <PostVideo
-            videoUrl={`http://192.168.0.34:3000/uploads/${videoAttachments[0].url}`}
-            thumbnailUrl={videoAttachments[0].thumbnailUrl ? `http://192.168.0.34:3000/uploads/${videoAttachments[0].thumbnailUrl}` : null}
+            videoUrl={`https://bh-alumni-social-media-app.onrender.com/uploads/${videoAttachments[0].url}`}
+            thumbnailUrl={videoAttachments[0].thumbnailUrl ? `https://bh-alumni-social-media-app.onrender.com/uploads/${videoAttachments[0].thumbnailUrl}` : null}
           />
         )}
         <View style={styles.interactions}>

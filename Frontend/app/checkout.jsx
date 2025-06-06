@@ -35,7 +35,7 @@ const CheckoutContent = () => {
         return;
       }
 
-      const response = await fetch('http://192.168.0.34:3000/api/cart', {
+      const response = await fetch('https://bh-alumni-social-media-app.onrender.com/api/cart', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -88,7 +88,7 @@ const CheckoutContent = () => {
   };
 
   const createShippingAddress = async (token) => {
-    const response = await fetch('http://192.168.0.34:3000/api/shipping-addresses', {
+    const response = await fetch('https://bh-alumni-social-media-app.onrender.com/api/shipping-addresses', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -110,7 +110,7 @@ const CheckoutContent = () => {
     try {
       const token = await SecureStore.getItemAsync('authToken');
       
-      const response = await fetch('http://192.168.0.34:3000/api/orders/create-payment-intent', {
+      const response = await fetch('https://bh-alumni-social-media-app.onrender.com/api/orders/create-payment-intent', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -166,7 +166,7 @@ const CheckoutContent = () => {
 
       const token = await SecureStore.getItemAsync('authToken');
       
-      const response = await fetch('http://192.168.0.34:3000/api/orders/confirm-payment', {
+      const response = await fetch('https://bh-alumni-social-media-app.onrender.com/api/orders/confirm-payment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
