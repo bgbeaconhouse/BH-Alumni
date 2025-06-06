@@ -54,7 +54,7 @@ app.use(express.urlencoded({ limit: '200mb', extended: true }));
 app.use(require("morgan")("dev"));
 
 // Configure Nodemailer with your email service details
-const transporter = nodemailer.createTransporter({
+const transporter = nodemailer.createTransport({
     service: 'Gmail', // e.g., 'Gmail', 'Outlook'
     auth: {
         user: process.env.EMAIL_USER, // Your email address
