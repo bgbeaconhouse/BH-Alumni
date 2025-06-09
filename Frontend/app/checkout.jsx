@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert } from 'react-native'
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert, Platform, StatusBar, KeyboardAvoidingView } from 'react-native'
 import { useRouter } from 'expo-router'
 import React, { useState, useEffect } from 'react'
 import * as SecureStore from 'expo-secure-store'
@@ -235,118 +235,155 @@ const CheckoutContent = () => {
   if (loading) {
     return (
       <View style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+        
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
+            <Text style={styles.headerButtonText}>← Cart</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Checkout</Text>
+          <View style={styles.headerButton} />
+        </View>
+
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
-          <Text>Loading checkout...</Text>
+          <ActivityIndicator size="large" color="#2c3e50" />
+          <Text style={styles.loadingText}>Loading checkout...</Text>
         </View>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Text style={styles.backText}>← Back to Cart</Text>
-      </TouchableOpacity>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+    >
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       
-      <Text style={styles.title}>Checkout</Text>
-      
-      {/* Order Summary */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Order Summary</Text>
-        {cartData?.items.map((item, index) => (
-          <View key={index} style={styles.orderItem}>
-            <Text style={styles.itemName}>{item.product.name}</Text>
-            <Text style={styles.itemDetails}>
-              Qty: {item.quantity} × ${item.product.price} = ${(item.quantity * item.product.price).toFixed(2)}
-            </Text>
-          </View>
-        ))}
-        <View style={styles.totalContainer}>
-          <Text style={styles.totalText}>Total: ${cartData?.totalAmount}</Text>
-        </View>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
+          <Text style={styles.headerButtonText}>← Cart</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Checkout</Text>
+        <View style={styles.headerButton} />
       </View>
 
-      {/* Shipping Address Form */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Shipping Address</Text>
-        
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Street Address *</Text>
-          <TextInput
-            style={styles.input}
-            value={address.street}
-            onChangeText={(text) => setAddress({...address, street: text})}
-            placeholder="123 Main Street"
-          />
-        </View>
-
-        <View style={styles.row}>
-          <View style={styles.halfInput}>
-            <Text style={styles.label}>City *</Text>
-            <TextInput
-              style={styles.input}
-              value={address.city}
-              onChangeText={(text) => setAddress({...address, city: text})}
-              placeholder="New York"
-            />
-          </View>
-          
-          <View style={styles.halfInput}>
-            <Text style={styles.label}>State *</Text>
-            <TextInput
-              style={styles.input}
-              value={address.state}
-              onChangeText={(text) => setAddress({...address, state: text})}
-              placeholder="NY"
-            />
-          </View>
-        </View>
-
-        <View style={styles.row}>
-          <View style={styles.halfInput}>
-            <Text style={styles.label}>ZIP Code *</Text>
-            <TextInput
-              style={styles.input}
-              value={address.zipCode}
-              onChangeText={(text) => setAddress({...address, zipCode: text})}
-              placeholder="10001"
-              keyboardType="numeric"
-            />
-          </View>
-          
-          <View style={styles.halfInput}>
-            <Text style={styles.label}>Country</Text>
-            <TextInput
-              style={styles.input}
-              value={address.country}
-              onChangeText={(text) => setAddress({...address, country: text})}
-              placeholder="United States"
-            />
-          </View>
-        </View>
-      </View>
-
-      {/* Place Order Button */}
-      <TouchableOpacity 
-        style={[styles.placeOrderButton, (orderLoading || paymentLoading) && styles.disabledButton]}
-        onPress={handlePlaceOrder}
-        disabled={orderLoading || paymentLoading}
+      <ScrollView 
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.placeOrderText}>
-          {paymentLoading ? 'Preparing Payment...' : 
-           orderLoading ? 'Processing...' : 
-           `Pay $${cartData?.totalAmount} with Stripe`}
-        </Text>
-      </TouchableOpacity>
-      
-      {paymentLoading && (
-        <View style={styles.paymentLoadingContainer}>
-          <ActivityIndicator size="small" color="#007AFF" />
-          <Text style={styles.paymentLoadingText}>Setting up secure payment...</Text>
+        {/* Order Summary */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Order Summary</Text>
+          {cartData?.items.map((item, index) => (
+            <View key={index} style={styles.orderItem}>
+              <View style={styles.itemRow}>
+                <Text style={styles.itemName} numberOfLines={1}>{item.product.name}</Text>
+                <Text style={styles.itemPrice}>${(item.quantity * item.product.price).toFixed(2)}</Text>
+              </View>
+              <Text style={styles.itemDetails}>
+                {item.quantity} × ${item.product.price}
+              </Text>
+            </View>
+          ))}
+          <View style={styles.totalContainer}>
+            <Text style={styles.totalText}>Total: ${cartData?.totalAmount}</Text>
+          </View>
         </View>
-      )}
-    </ScrollView>
+
+        {/* Shipping Address Form */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Shipping Address</Text>
+          
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Street Address</Text>
+            <TextInput
+              style={styles.input}
+              value={address.street}
+              onChangeText={(text) => setAddress({...address, street: text})}
+              placeholder="123 Main Street"
+              placeholderTextColor="#bdc3c7"
+            />
+          </View>
+
+          <View style={styles.row}>
+            <View style={styles.halfInput}>
+              <Text style={styles.label}>City</Text>
+              <TextInput
+                style={styles.input}
+                value={address.city}
+                onChangeText={(text) => setAddress({...address, city: text})}
+                placeholder="New York"
+                placeholderTextColor="#bdc3c7"
+              />
+            </View>
+            
+            <View style={styles.halfInput}>
+              <Text style={styles.label}>State</Text>
+              <TextInput
+                style={styles.input}
+                value={address.state}
+                onChangeText={(text) => setAddress({...address, state: text})}
+                placeholder="NY"
+                placeholderTextColor="#bdc3c7"
+              />
+            </View>
+          </View>
+
+          <View style={styles.row}>
+            <View style={styles.halfInput}>
+              <Text style={styles.label}>ZIP Code</Text>
+              <TextInput
+                style={styles.input}
+                value={address.zipCode}
+                onChangeText={(text) => setAddress({...address, zipCode: text})}
+                placeholder="10001"
+                placeholderTextColor="#bdc3c7"
+                keyboardType="numeric"
+              />
+            </View>
+            
+            <View style={styles.halfInput}>
+              <Text style={styles.label}>Country</Text>
+              <TextInput
+                style={styles.input}
+                value={address.country}
+                onChangeText={(text) => setAddress({...address, country: text})}
+                placeholder="United States"
+                placeholderTextColor="#bdc3c7"
+              />
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* Fixed Bottom Payment */}
+      <View style={styles.bottomContainer}>
+        {paymentLoading && (
+          <View style={styles.paymentLoadingContainer}>
+            <ActivityIndicator size="small" color="#2c3e50" />
+            <Text style={styles.paymentLoadingText}>Setting up secure payment...</Text>
+          </View>
+        )}
+        
+        <TouchableOpacity 
+          style={[styles.placeOrderButton, (orderLoading || paymentLoading) && styles.disabledButton]}
+          onPress={handlePlaceOrder}
+          disabled={orderLoading || paymentLoading}
+        >
+          <Text style={[styles.placeOrderText, (orderLoading || paymentLoading) && styles.disabledButtonText]}>
+            {paymentLoading ? 'Preparing Payment...' : 
+             orderLoading ? 'Processing...' : 
+             `Pay ${cartData?.totalAmount}`}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -367,114 +404,199 @@ export default Checkout;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
   },
-  backButton: {
-    padding: 16,
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingHorizontal: 30,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ecf0f1',
   },
-  backText: {
+  headerButton: {
+    minWidth: 60,
+  },
+  headerButtonText: {
+    color: '#7f8c8d',
     fontSize: 16,
-    color: '#007AFF',
+    fontWeight: '300',
+    letterSpacing: 0.5,
   },
-  title: {
+  headerTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 20,
+    fontWeight: '100',
+    color: '#2c3e50',
+    letterSpacing: 2,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#ffffff',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#7f8c8d',
+    fontWeight: '300',
+    letterSpacing: 0.5,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 120, // Extra padding to ensure content is accessible above keyboard
   },
   section: {
-    marginHorizontal: 16,
-    marginBottom: 24,
-    padding: 16,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
+    marginHorizontal: 30,
+    marginTop: 30,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#f8f9fa',
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    color: '#333',
+    fontWeight: '300',
+    marginBottom: 20,
+    color: '#2c3e50',
+    letterSpacing: 0.5,
   },
   orderItem: {
-    paddingVertical: 8,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#f8f9fa',
+  },
+  itemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   itemName: {
     fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 4,
+    fontWeight: '300',
+    color: '#2c3e50',
+    letterSpacing: 0.3,
+    flex: 1,
+    marginRight: 16,
+  },
+  itemPrice: {
+    fontSize: 16,
+    fontWeight: '300',
+    color: '#2c3e50',
+    letterSpacing: 0.3,
   },
   itemDetails: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 13,
+    color: '#7f8c8d',
+    fontWeight: '300',
+    letterSpacing: 0.3,
   },
   totalContainer: {
-    paddingTop: 12,
-    marginTop: 8,
-    borderTopWidth: 2,
-    borderTopColor: '#007AFF',
+    paddingTop: 16,
+    marginTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#ecf0f1',
   },
   totalText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#007AFF',
+    fontSize: 20,
+    fontWeight: '300',
+    color: '#2c3e50',
     textAlign: 'right',
+    letterSpacing: 0.5,
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   label: {
     fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 6,
-    color: '#333',
+    fontWeight: '300',
+    marginBottom: 8,
+    color: '#2c3e50',
+    letterSpacing: 0.5,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#ecf0f1',
     borderRadius: 8,
-    padding: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     fontSize: 16,
-    backgroundColor: '#fff',
+    fontWeight: '300',
+    backgroundColor: '#ffffff',
+    color: '#2c3e50',
+    letterSpacing: 0.3,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   halfInput: {
     flex: 1,
-    marginHorizontal: 4,
+    marginHorizontal: 6,
   },
-  placeOrderButton: {
-    backgroundColor: '#6772e5',
-    margin: 16,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  disabledButton: {
-    backgroundColor: '#ccc',
-  },
-  placeOrderText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
+  bottomContainer: {
+    paddingHorizontal: 30,
+    paddingVertical: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    borderTopWidth: 1,
+    borderTopColor: '#ecf0f1',
+    backgroundColor: '#ffffff',
   },
   paymentLoadingContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    paddingBottom: 16,
   },
   paymentLoadingText: {
     marginLeft: 8,
-    color: '#666',
+    fontSize: 14,
+    color: '#7f8c8d',
+    fontWeight: '300',
+    letterSpacing: 0.3,
+  },
+  placeOrderButton: {
+    backgroundColor: '#2c3e50',
+    paddingVertical: 18,
+    borderRadius: 8,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  disabledButton: {
+    backgroundColor: '#ecf0f1',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  placeOrderText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '300',
+    letterSpacing: 0.5,
+  },
+  disabledButtonText: {
+    color: '#bdc3c7',
   },
 });

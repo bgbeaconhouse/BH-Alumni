@@ -14,6 +14,7 @@ import {
     Modal,
     Pressable,
     ScrollView,
+    StatusBar,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
@@ -92,13 +93,16 @@ const MessageItem = memo(({ item, currentUserId, onImagePress }) => {
 
     return (
         <View style={[styles.messageBubble, isCurrentUserSender ? styles.sentMessage : styles.receivedMessage]}>
-            <Text style={styles.senderName}>{isCurrentUserSender ? 'You' : item.sender?.firstName}</Text>
-            <Text style={styles.messageText}>{item.content}</Text>
+            <Text style={[styles.senderName, isCurrentUserSender ? styles.sentSenderName : styles.receivedSenderName]}>
+                {isCurrentUserSender ? 'You' : item.sender?.firstName}
+            </Text>
+            <Text style={[styles.messageText, isCurrentUserSender ? styles.sentMessageText : styles.receivedMessageText]}>{item.content}</Text>
             {(item.imageAttachments && item.imageAttachments.length > 0) && (
                 item.imageAttachments.map(attachment => (
                     <TouchableOpacity
                         key={attachment.id}
                         onPress={() => onImagePress(`https://bh-alumni-social-media-app.onrender.com${attachment.url}`)}
+                        style={styles.attachmentContainer}
                     >
                         <Image
                             source={{ uri: `https://bh-alumni-social-media-app.onrender.com${attachment.url}` }}
@@ -111,15 +115,14 @@ const MessageItem = memo(({ item, currentUserId, onImagePress }) => {
             )}
             {(item.videoAttachments && item.videoAttachments.length > 0) && (
                 item.videoAttachments.map(attachment => (
-                <Video
-    key={attachment.id}
-    source={{ uri: `https://bh-alumni-social-media-app.onrender.com${attachment.url}` }}
-    style={styles.videoAttachment}
-    useNativeControls
-    resizeMode="cover"
-    // Remove isLooping
-    shouldPlay={false} // Don't auto-play
-/>
+                    <Video
+                        key={attachment.id}
+                        source={{ uri: `https://bh-alumni-social-media-app.onrender.com${attachment.url}` }}
+                        style={styles.videoAttachment}
+                        useNativeControls
+                        resizeMode="cover"
+                        shouldPlay={false}
+                    />
                 ))
             )}
         </View>
@@ -501,17 +504,19 @@ const handleSendMedia = async (media, retryCount = 0) => {
 
     if (loading && messages.length === 0) {
         return (
-            <View style={styles.centered}>
-                <ActivityIndicator size="large" color="#0000ff" />
-                <Text>Loading messages...</Text>
+            <View style={styles.loadingContainer}>
+                <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+                <ActivityIndicator size="large" color="#2c3e50" />
+                <Text style={styles.loadingText}>Loading conversation...</Text>
             </View>
         );
     }
 
     if (error) {
         return (
-            <View style={styles.centered}>
-                <Text style={styles.errorText}>{error}</Text>
+            <View style={styles.errorContainer}>
+                <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+                <Text style={styles.errorText}>Unable to load conversation</Text>
                 <TouchableOpacity style={styles.retryButton} onPress={fetchMessages}>
                     <Text style={styles.retryButtonText}>Try Again</Text>
                 </TouchableOpacity>
@@ -521,61 +526,91 @@ const handleSendMedia = async (media, retryCount = 0) => {
 
     return (
         <KeyboardAvoidingView
-            style={{ flex: 1 }}
+            style={styles.container}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
         >
-            <View style={styles.headerContainer}>
-                <TouchableOpacity style={styles.backButtonStyled} onPress={() => router.push('/messaging')}>
-                    <Text style={styles.backButtonTextStyled}>Back</Text>
+            <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+            
+            {/* Header */}
+            <View style={styles.header}>
+                <TouchableOpacity style={styles.headerButton} onPress={() => router.push('/messaging')}>
+                    <Text style={styles.headerButtonText}>← Messages</Text>
                 </TouchableOpacity>
-                {/* You might want to display the conversation name centered here */}
+                <Text style={styles.headerTitle}>Conversation</Text>
+                <View style={styles.headerButton} />
             </View>
-            <View style={styles.container}>
-                <FlatList
-                    ref={flatListRef}
-                    data={messages}
-                    keyExtractor={(item) => item.id.toString()}
-                    renderItem={renderMessageItem}
-                    contentContainerStyle={styles.messagesContainer}
-                    // Add these props for better performance with large lists
-                    initialNumToRender={10} // Render 10 items initially
-                    maxToRenderPerBatch={5} // Render 5 items per batch
-                    windowSize={21} // Keep 21 items in memory (10 above, 10 below, 1 current)
-                    removeClippedSubviews={true} // Unmount components that go off-screen
-           
-                />
-                <View style={styles.inputContainer}>
-                    <TouchableOpacity onPress={pickMedia} style={styles.mediaButton}>
-                        <Text style={styles.mediaButtonText}>+</Text>
-                    </TouchableOpacity>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Send a message..."
-                        value={newMessage}
-                        onChangeText={setNewMessage}
-                        onSubmitEditing={sendMessage}
-                    />
-                    <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
-                        <Text style={styles.sendButtonText}>Send</Text>
-                    </TouchableOpacity>
-                </View>
 
-                <Modal
-                    animationType="slide"
-                    transparent={true}
-                    visible={modalVisible}
-                    onRequestClose={() => {
-                        setModalVisible(false);
-                        setSelectedImage(null);
-                    }}
+            {/* Messages List */}
+            <FlatList
+                ref={flatListRef}
+                data={messages}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={renderMessageItem}
+                contentContainerStyle={styles.messagesContainer}
+                style={styles.messagesList}
+                initialNumToRender={10}
+                maxToRenderPerBatch={5}
+                windowSize={21}
+                removeClippedSubviews={true}
+                showsVerticalScrollIndicator={false}
+            />
+
+            {/* Input Container */}
+            <View style={styles.inputContainer}>
+                <TouchableOpacity 
+                    onPress={pickMedia} 
+                    style={[styles.mediaButton, isUploading && styles.mediaButtonDisabled]}
+                    disabled={isUploading}
                 >
-                    <View style={styles.modalContainer}>
+                    <Text style={[styles.mediaButtonText, isUploading && styles.mediaButtonTextDisabled]}>
+                        {isUploading ? '...' : '+'}
+                    </Text>
+                </TouchableOpacity>
+                <TextInput
+                    style={styles.input}
+                    placeholder="Type a message..."
+                    placeholderTextColor="#bdc3c7"
+                    value={newMessage}
+                    onChangeText={setNewMessage}
+                    onSubmitEditing={sendMessage}
+                    multiline
+                />
+                <TouchableOpacity 
+                    style={[styles.sendButton, !newMessage.trim() && styles.sendButtonDisabled]} 
+                    onPress={sendMessage}
+                    disabled={!newMessage.trim()}
+                >
+                    <Text style={[styles.sendButtonText, !newMessage.trim() && styles.sendButtonTextDisabled]}>
+                        Send
+                    </Text>
+                </TouchableOpacity>
+            </View>
+
+            {/* Image Modal */}
+            <Modal
+                animationType="fade"
+                transparent={true}
+                visible={modalVisible}
+                onRequestClose={() => {
+                    setModalVisible(false);
+                    setSelectedImage(null);
+                }}
+            >
+                <View style={styles.modalContainer}>
+                    <TouchableOpacity 
+                        style={styles.modalBackdrop}
+                        onPress={() => {
+                            setModalVisible(false);
+                            setSelectedImage(null);
+                        }}
+                    >
                         <ScrollView
                             style={styles.modalScrollView}
                             maximumZoomScale={3}
                             minimumZoomScale={1}
                             centerContent={true}
+                            contentContainerStyle={styles.modalScrollContent}
                         >
                             {selectedImage && (
                                 <Image
@@ -585,194 +620,281 @@ const handleSendMedia = async (media, retryCount = 0) => {
                                 />
                             )}
                         </ScrollView>
-                        <TouchableOpacity style={styles.closeButton} onPress={() => {
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={styles.closeButton} 
+                        onPress={() => {
                             setModalVisible(false);
                             setSelectedImage(null);
-                        }}>
-                            <Text style={styles.closeButtonText}>Close</Text>
-                        </TouchableOpacity>
-                    </View>
-                </Modal>
-            </View>
+                        }}
+                    >
+                        <Text style={styles.closeButtonText}>✕</Text>
+                    </TouchableOpacity>
+                </View>
+            </Modal>
         </KeyboardAvoidingView>
     );
 };
 
+export default SeeMessages
+
 const styles = StyleSheet.create({
-    headerContainer: {
-        paddingTop: Platform.OS === 'ios' ? 50 : 20,
-        paddingHorizontal: 10,
-        backgroundColor: '#f0f0f0',
-        borderBottomWidth: 1,
-        borderBottomColor: '#ccc',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'flex-start',
-    },
-    backButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 10,
-        paddingRight: 15,
-    },
-    backButtonText: {
-        fontSize: 16,
-        color: '#007bff',
-        marginLeft: 5,
-    },
-    backButtonStyled: {
-        backgroundColor: '#007bff',
-        borderRadius: 5,
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        marginBottom: 10,
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    backButtonTextStyled: {
-        fontSize: 16,
-        color: '#fff',
-        fontWeight: 'bold',
-    },
     container: {
         flex: 1,
-        backgroundColor: '#e8e8e8',
+        backgroundColor: '#ffffff',
     },
-    centered: {
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingTop: Platform.OS === 'ios' ? 50 : 30,
+        paddingHorizontal: 30,
+        paddingBottom: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#ecf0f1',
+        backgroundColor: '#ffffff',
+    },
+    headerButton: {
+        minWidth: 60,
+    },
+    headerButtonText: {
+        color: '#7f8c8d',
+        fontSize: 16,
+        fontWeight: '300',
+        letterSpacing: 0.5,
+    },
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: '100',
+        color: '#2c3e50',
+        letterSpacing: 2,
+    },
+    loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: '#ffffff',
+    },
+    loadingText: {
+        marginTop: 16,
+        fontSize: 16,
+        color: '#7f8c8d',
+        fontWeight: '300',
+        letterSpacing: 0.5,
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#ffffff',
+        paddingHorizontal: 40,
+    },
+    errorText: {
+        fontSize: 18,
+        color: '#e74c3c',
+        fontWeight: '300',
+        textAlign: 'center',
+        marginBottom: 30,
+        letterSpacing: 0.5,
+    },
+    retryButton: {
+        backgroundColor: '#2c3e50',
+        paddingVertical: 16,
+        paddingHorizontal: 24,
+        borderRadius: 8,
+    },
+    retryButtonText: {
+        color: '#ffffff',
+        fontSize: 16,
+        fontWeight: '300',
+        letterSpacing: 0.5,
+    },
+    messagesList: {
+        flex: 1,
+        backgroundColor: '#f8f9fa',
     },
     messagesContainer: {
-        padding: 10,
-        paddingBottom: 70,
+        paddingHorizontal: 20,
+        paddingVertical: 20,
+        paddingBottom: 30,
     },
     messageBubble: {
-        padding: 10,
-        borderRadius: 10,
-        marginBottom: 8,
-        maxWidth: '80%',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 20,
+        marginBottom: 12,
+        maxWidth: '75%',
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 1,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 1,
     },
     sentMessage: {
-        backgroundColor: '#DCF8C6',
+        backgroundColor: '#2c3e50',
         alignSelf: 'flex-end',
+        borderBottomRightRadius: 4,
     },
     receivedMessage: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#ffffff',
         alignSelf: 'flex-start',
+        borderBottomLeftRadius: 4,
+        borderWidth: 1,
+        borderColor: '#ecf0f1',
     },
     senderName: {
-        fontSize: 12,
-        color: '#555',
-        marginBottom: 2,
+        fontSize: 11,
+        marginBottom: 4,
+        fontWeight: '300',
+        letterSpacing: 0.5,
+        textTransform: 'uppercase',
     },
     messageText: {
         fontSize: 16,
-        color: '#000',
+        fontWeight: '300',
+        letterSpacing: 0.3,
+        lineHeight: 22,
+        color: '#ffffff',
     },
-    attachmentText: {
-        fontSize: 14,
-        color: '#007bff',
-        marginTop: 5,
+    attachmentContainer: {
+        marginTop: 8,
+    },
+    imageAttachment: {
+        width: 200,
+        height: 200,
+        borderRadius: 12,
+        marginTop: 8,
+    },
+    videoAttachment: {
+        width: 200,
+        height: 200,
+        borderRadius: 12,
+        marginTop: 8,
     },
     inputContainer: {
         flexDirection: 'row',
-        padding: 10,
-        backgroundColor: '#f0f0f0',
-        borderTopWidth: 1,
-        borderTopColor: '#ccc',
-    },
-    input: {
-        flex: 1,
-        height: 40,
-        backgroundColor: '#fff',
-        borderRadius: 20,
-        paddingHorizontal: 15,
-        marginRight: 10,
-    },
-    sendButton: {
-        backgroundColor: '#007bff',
-        borderRadius: 20,
-        paddingVertical: 10,
-        paddingHorizontal: 15,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    sendButtonText: {
-        color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 16,
-    },
-    errorText: {
-        color: 'red',
-        fontSize: 16,
-        textAlign: 'center',
-        marginBottom: 10,
-    },
-    retryButton: {
-        backgroundColor: '#007bff',
-        paddingVertical: 10,
+        alignItems: 'flex-end',
         paddingHorizontal: 20,
-        borderRadius: 5,
-    },
-    retryButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: 'bold',
+        paddingVertical: 16,
+        backgroundColor: '#ffffff',
+        borderTopWidth: 1,
+        borderTopColor: '#ecf0f1',
     },
     mediaButton: {
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: '#ccc',
+        backgroundColor: '#2c3e50',
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 10,
+        marginRight: 12,
+        marginBottom: 2,
+    },
+    mediaButtonDisabled: {
+        backgroundColor: '#bdc3c7',
     },
     mediaButtonText: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#fff',
+        fontSize: 20,
+        fontWeight: '300',
+        color: '#ffffff',
+        lineHeight: 20,
     },
-    imageAttachment: {
-        width: 200,
-        height: 200,
-        borderRadius: 5,
-        marginTop: 5,
+    mediaButtonTextDisabled: {
+        color: '#ecf0f1',
     },
-    videoAttachment: {
-        width: 200,
-        height: 200,
-        borderRadius: 5,
-        marginTop: 5,
+    input: {
+        flex: 1,
+        backgroundColor: '#f8f9fa',
+        borderRadius: 20,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        fontSize: 16,
+        fontWeight: '300',
+        color: '#2c3e50',
+        letterSpacing: 0.3,
+        maxHeight: 100,
+        borderWidth: 1,
+        borderColor: '#ecf0f1',
+    },
+    sendButton: {
+        backgroundColor: '#2c3e50',
+        borderRadius: 20,
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        marginLeft: 12,
+        marginBottom: 2,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    sendButtonDisabled: {
+        backgroundColor: '#ecf0f1',
+    },
+    sendButtonText: {
+        color: '#ffffff',
+        fontWeight: '300',
+        fontSize: 16,
+        letterSpacing: 0.5,
+    },
+    sendButtonTextDisabled: {
+        color: '#bdc3c7',
     },
     modalContainer: {
         flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.95)',
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    },
+    modalBackdrop: {
+        flex: 1,
+        width: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     modalScrollView: {
-        flex: 1, // Make ScrollView take available modal space
+        flex: 1,
         width: '100%',
-        height: '80%',
+    },
+    modalScrollContent: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 20,
     },
     modalImage: {
         width: '100%',
-        height: undefined, // Set height to undefined to allow aspect ratio to govern
-        aspectRatio: 1, // Maintain aspect ratio
+        height: undefined,
+        aspectRatio: 1,
+        borderRadius: 8,
     },
     closeButton: {
         position: 'absolute',
-        bottom: 20,
-        padding: 10,
-        backgroundColor: 'rgba(255, 255, 255, 0.3)',
-        borderRadius: 5,
+        top: Platform.OS === 'ios' ? 60 : 40,
+        right: 30,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     closeButtonText: {
-        color: 'white',
-        fontSize: 16,
+        color: '#ffffff',
+        fontSize: 18,
+        fontWeight: '300',
+    },
+    sentSenderName: {
+        color: 'rgba(255, 255, 255, 0.7)',
+    },
+    receivedSenderName: {
+        color: '#7f8c8d',
+    },
+    sentMessageText: {
+        color: '#ffffff',
+    },
+    receivedMessageText: {
+        color: '#2c3e50',
     },
 });
-
-export default SeeMessages;

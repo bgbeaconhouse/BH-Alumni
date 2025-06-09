@@ -1,27 +1,39 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
+import { StyleSheet, Text, TouchableOpacity, View, StatusBar } from 'react-native';
 import React from 'react';
 import { Link } from 'expo-router';
 
 const Home = () => {
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       
-      <Text style={styles.title}>Alumni Connect</Text>
-      <Text style={styles.description}>
-        Where you can connect with past alumni and shop latest alumni gear!
-      </Text>
-      <TouchableOpacity style={styles.button}>
-        <Link href="/login" style={styles.buttonText}>
-          Login
-        </Link>
-      </TouchableOpacity>
+      {/* Main Content - Centered */}
+      <View style={styles.content}>
+        <View style={styles.brandSection}>
+          <Text style={styles.logo}>BH</Text>
+          <Text style={styles.title}>Alumni Connect</Text>
+          <Text style={styles.tagline}>Connected for life</Text>
+        </View>
 
-      <TouchableOpacity style={styles.button}>
-        <Link href="/register" style={styles.buttonText}>
-          Register
-        </Link>
-      </TouchableOpacity>
+        <View style={styles.actionButtons}>
+          <TouchableOpacity style={styles.loginButton}>
+            <Link href="/login" style={styles.loginText}>
+              Sign In
+            </Link>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.registerButton}>
+            <Link href="/register" style={styles.registerText}>
+              Join Network
+            </Link>
+          </TouchableOpacity>
+        </View>
+      </View>
+      
+      {/* Simple Footer */}
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>Beacon House • Est. 1970</Text>
+      </View>
     </View>
   );
 };
@@ -31,36 +43,77 @@ export default Home;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
+    backgroundColor: '#ffffff',
+  },
+  content: {
+    flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  brandSection: {
+    alignItems: 'center',
+    marginBottom: 60,
+  },
+  logo: {
+    fontSize: 48,
+    fontWeight: '100',
+    color: '#2c3e50',
+    letterSpacing: 8,
+    marginBottom: 16,
   },
   title: {
-    fontWeight: 'bold',
-    fontSize: 18,
-    textAlign: 'center',
-    marginBottom: 20,
+    fontSize: 28,
+    fontWeight: '300',
+    color: '#2c3e50',
+    marginBottom: 8,
+    letterSpacing: 1,
   },
-  button: {
-    backgroundColor: '#007bff',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 5,
-    marginVertical: 10,
-     width: 200, // Added a fixed width
-    alignItems: 'center', // Added to center text within the button
-  },
-  buttonText: {
-    color: 'white',
+  tagline: {
     fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    color: '#7f8c8d',
+    fontWeight: '300',
+    letterSpacing: 0.5,
   },
-  description: {
-    marginBottom: 30, // Changed from marginTop to marginBottom
-    color: '#555',
+  actionButtons: {
+    width: '100%',
+    maxWidth: 280,
+  },
+  loginButton: {
+    backgroundColor: '#2c3e50',
+    paddingVertical: 18,
+    borderRadius: 8,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  loginText: {
+    color: '#ffffff',
     fontSize: 16,
-    textAlign: 'center',
-    paddingHorizontal: 20,
-    lineHeight: 24,
+    fontWeight: '500',
+    letterSpacing: 0.5,
+  },
+  registerButton: {
+    backgroundColor: 'transparent',
+    paddingVertical: 18,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2c3e50',
+    alignItems: 'center',
+  },
+  registerText: {
+    color: '#2c3e50',
+    fontSize: 16,
+    fontWeight: '500',
+    letterSpacing: 0.5,
+  },
+  footer: {
+    paddingBottom: 40,
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: 12,
+    color: '#bdc3c7',
+    fontWeight: '300',
+    letterSpacing: 1,
   },
 });

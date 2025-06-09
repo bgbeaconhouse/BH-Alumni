@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, FlatList, ActivityIndicator, TouchableOpacity, Alert, Platform } from 'react-native';
+import { StyleSheet, Text, View, FlatList, ActivityIndicator, TouchableOpacity, Alert, Platform, StatusBar } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { Link, useRouter } from 'expo-router';
@@ -66,62 +66,87 @@ const Messaging = () => {
     router.push('/newMessage');
   };
 
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+        <ActivityIndicator size="large" color="#2c3e50" />
+        <Text style={styles.loadingText}>Loading conversations...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+        <Text style={styles.errorText}>Unable to load messages</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={fetchConversations}>
+          <Text style={styles.retryButtonText}>Try Again</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      
+      {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity style={styles.homeButton} onPress={() => router.push('/home')}>
-            <Text style={styles.homeButtonText}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.newMessageButton} onPress={handleNewMessagePress}>
-            <Text style={styles.newMessageButtonText}>New Message</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={styles.headerButton} onPress={() => router.push('/home')}>
+          <Text style={styles.headerButtonText}>← Home</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Messages</Text>
+        <TouchableOpacity style={styles.headerButton} onPress={handleNewMessagePress}>
+          <Text style={styles.headerButtonText}>New</Text>
+        </TouchableOpacity>
       </View>
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#0000ff" />
-          <Text>Loading conversations...</Text>
-        </View>
-      ) : error ? (
-        <View style={styles.centered}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={fetchConversations}>
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
-      ) : conversations.length === 0 ? (
-        <View style={styles.centered}>
-          <Text>No conversations found.</Text>
-          <Text>Start a new chat to see it here!</Text>
+
+      {conversations.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <View style={styles.emptyContent}>
+            <Text style={styles.logo}>BH</Text>
+            <Text style={styles.emptyTitle}>No Messages Yet</Text>
+            <Text style={styles.emptySubtitle}>Start a conversation with your community</Text>
+            <TouchableOpacity style={styles.newMessageButton} onPress={handleNewMessagePress}>
+              <Text style={styles.newMessageButtonText}>Send First Message</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Beacon House • Connected in recovery</Text>
+          </View>
         </View>
       ) : (
         <FlatList
           data={conversations}
           keyExtractor={(item) => item.id.toString()}
           renderItem={({ item }) => (
-            <Link
-              href={{
-                pathname: '/seeMessages',
-                params: { conversationId: item.id },
-              }}
-              style={styles.conversationItem}
-            >
-              <Text style={styles.conversationName}>{item.name ? item.name : item.participants.map(p => p.firstName).join(', ')}</Text>
-              {item.lastMessage && (
-                <>
-                 <View style={{ width: 10 }} />
-                <Text style={styles.lastMessage}>
-                  {item.lastMessage.sender.firstName}: {item.lastMessage.content ? item.lastMessage.content : 'Attachment'}
-                </Text>
-                </>
-              )}
-              {!item.lastMessage && (
-                <Text style={styles.noMessage}>No messages yet.</Text>
-              )}
-            </Link>
+            <TouchableOpacity style={styles.conversationItem}>
+              <Link
+                href={{
+                  pathname: '/seeMessages',
+                  params: { conversationId: item.id },
+                }}
+                style={styles.conversationLink}
+              >
+                <View style={styles.conversationContent}>
+                  <Text style={styles.conversationName}>
+                    {item.name ? item.name : item.participants.map(p => p.firstName).join(', ')}
+                  </Text>
+                  {item.lastMessage ? (
+                    <Text style={styles.lastMessage}>
+                      {item.lastMessage.sender.firstName}: {item.lastMessage.content ? item.lastMessage.content : 'Attachment'}
+                    </Text>
+                  ) : (
+                    <Text style={styles.noMessage}>No messages yet</Text>
+                  )}
+                </View>
+              </Link>
+            </TouchableOpacity>
           )}
           contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
         />
       )}
     </View>
@@ -133,104 +158,162 @@ export default Messaging;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f5',
+    backgroundColor: '#ffffff',
   },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    paddingHorizontal: 10,
-    backgroundColor: '#f0f0f0',
-    borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
-  },
-  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    width: '100%',
-    marginBottom: 10,
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingHorizontal: 30,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ecf0f1',
   },
-  homeButton: {
-    backgroundColor: '#007bff',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 5,
+  headerButton: {
+    minWidth: 60,
   },
-  homeButtonText: {
-    color: '#fff',
+  headerButtonText: {
+    color: '#7f8c8d',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '300',
+    letterSpacing: 0.5,
   },
-  newMessageButton: {
-    backgroundColor: '#28a745',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 5,
-  },
-  newMessageButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  headerText: {
+  headerTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    color: '#333',
-    marginBottom: 15,
+    fontWeight: '100',
+    color: '#2c3e50',
+    letterSpacing: 2,
   },
-  centered: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f0f2f5',
+    backgroundColor: '#ffffff',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#7f8c8d',
+    fontWeight: '300',
+    letterSpacing: 0.5,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 40,
+  },
+  errorText: {
+    fontSize: 18,
+    color: '#e74c3c',
+    fontWeight: '300',
+    textAlign: 'center',
+    marginBottom: 30,
+    letterSpacing: 0.5,
+  },
+  retryButton: {
+    backgroundColor: '#2c3e50',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '300',
+    letterSpacing: 0.5,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  emptyContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  logo: {
+    fontSize: 48,
+    fontWeight: '100',
+    color: '#2c3e50',
+    letterSpacing: 8,
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: '300',
+    color: '#2c3e50',
+    marginBottom: 8,
+    letterSpacing: 1,
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    color: '#7f8c8d',
+    fontWeight: '300',
+    textAlign: 'center',
+    marginBottom: 40,
+    letterSpacing: 0.5,
+  },
+  newMessageButton: {
+    backgroundColor: '#2c3e50',
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+    borderRadius: 8,
+  },
+  newMessageButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '300',
+    letterSpacing: 0.5,
   },
   listContent: {
-    paddingHorizontal: 10,
-    paddingBottom: 20,
+    paddingHorizontal: 30,
+    paddingTop: 20,
+    paddingBottom: 40,
   },
   conversationItem: {
-    backgroundColor: '#ffffff',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-    marginTop: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    marginBottom: 1,
+  },
+  conversationLink: {
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ecf0f1',
+  },
+  conversationContent: {
+    flex: 1,
   },
   conversationName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontSize: 16,
+    fontWeight: '300',
+    color: '#2c3e50',
+    marginBottom: 6,
+    letterSpacing: 0.5,
   },
   lastMessage: {
     fontSize: 14,
-    color: '#666',
-    marginTop: 5,
+    color: '#7f8c8d',
+    fontWeight: '300',
+    letterSpacing: 0.5,
+    lineHeight: 18,
   },
   noMessage: {
     fontSize: 14,
-    color: '#999',
+    color: '#bdc3c7',
+    fontWeight: '300',
     fontStyle: 'italic',
-    marginTop: 5,
+    letterSpacing: 0.5,
   },
-  errorText: {
-    color: 'red',
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 10,
+  footer: {
+    paddingBottom: 40,
+    alignItems: 'center',
   },
-  retryButton: {
-    backgroundColor: '#007bff',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 5,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+  footerText: {
+    fontSize: 12,
+    color: '#bdc3c7',
+    fontWeight: '300',
+    letterSpacing: 1,
   },
 });

@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, FlatList, ActivityIndicator, Image, TextInput, Modal, ScrollView, Dimensions, Alert } from 'react-native';
-import { VideoView, useVideoPlayer } from 'expo-video'; // Updated import
+import { StyleSheet, Text, View, TouchableOpacity, FlatList, ActivityIndicator, Image, TextInput, Modal, ScrollView, Dimensions, Alert, StatusBar } from 'react-native';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { Link, useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Keep for migration
-import { Feather } from '@expo/vector-icons'; // For the play icon
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -12,13 +11,11 @@ const PostVideo = ({ videoUrl, thumbnailUrl }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   
-  // Create video player instance
   const player = useVideoPlayer(videoUrl, (player) => {
     player.loop = false;
     player.muted = false;
   });
 
-  // Handle play/pause events
   useEffect(() => {
     const subscription = player.addListener('playingChange', (isPlaying) => {
       setIsPlaying(isPlaying);
@@ -37,8 +34,6 @@ const PostVideo = ({ videoUrl, thumbnailUrl }) => {
   const closeModal = () => {
     setModalVisible(false);
     player.pause();
-    // Remove the seekTo call since it's not available
-    // player.seekTo(0); // This line causes the error
   };
 
   return (
@@ -50,7 +45,7 @@ const PostVideo = ({ videoUrl, thumbnailUrl }) => {
           <View style={styles.noThumbnailPlaceholder} />
         )}
         <View style={styles.playIconContainer}>
-          <Feather name="play-circle" size={48} color="white" />
+          <Text style={styles.playIcon}>▶</Text>
         </View>
       </TouchableOpacity>
 
@@ -86,11 +81,11 @@ const Post = () => {
   const [showComments, setShowComments] = useState({});
   const [likes, setLikes] = useState({});
   const [userLikedPosts, setUserLikedPosts] = useState({});
-  const [newCommentText, setNewCommentText] = useState({}); // Track text for new comments
-  const [isSubmittingComment, setIsSubmittingComment] = useState({}); // Track if comment is being submitted
-  const [currentUserId, setCurrentUserId] = useState(null); // State to hold current user's ID
-  const [isDeletingComment, setIsDeletingComment] = useState({}); // Track if a comment is being deleted
-  const [isDeletingPost, setIsDeletingPost] = useState({}); // Track if a post is being deleted
+  const [newCommentText, setNewCommentText] = useState({});
+  const [isSubmittingComment, setIsSubmittingComment] = useState({});
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [isDeletingComment, setIsDeletingComment] = useState({});
+  const [isDeletingPost, setIsDeletingPost] = useState({});
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
   const [modalImages, setModalImages] = useState([]);
@@ -98,16 +93,11 @@ const Post = () => {
   // Migration function to move tokens from AsyncStorage to SecureStore
   const migrateFromAsyncStorage = async () => {
     try {
-      // Check if token exists in AsyncStorage
       const existingToken = await AsyncStorage.getItem('authToken');
       
       if (existingToken) {
-        // Move to SecureStore
         await SecureStore.setItemAsync('authToken', existingToken);
-        
-        // Remove from AsyncStorage
         await AsyncStorage.removeItem('authToken');
-        
         console.log('Token migrated to SecureStore successfully');
       }
     } catch (error) {
@@ -117,11 +107,9 @@ const Post = () => {
 
   const getToken = async () => {
     try {
-      // First, try to get from SecureStore
       let token = await SecureStore.getItemAsync('authToken');
       
       if (!token) {
-        // If not found, try migration
         await migrateFromAsyncStorage();
         token = await SecureStore.getItemAsync('authToken');
       }
@@ -130,22 +118,6 @@ const Post = () => {
     } catch (error) {
       console.error('Error retrieving token from SecureStore:', error);
       return null;
-    }
-  };
-
-  const setToken = async (token) => {
-    try {
-      await SecureStore.setItemAsync('authToken', token);
-    } catch (error) {
-      console.error('Error storing token in SecureStore:', error);
-    }
-  };
-
-  const removeToken = async () => {
-    try {
-      await SecureStore.deleteItemAsync('authToken');
-    } catch (error) {
-      console.error('Error removing token from SecureStore:', error);
     }
   };
 
@@ -309,7 +281,7 @@ const Post = () => {
           ...prevComments,
           [postId]: [newComment, ...(prevComments[postId] || [])],
         }));
-        setNewCommentText((prevText) => ({ ...prevText, [postId]: '' })); // Clear input
+        setNewCommentText((prevText) => ({ ...prevText, [postId]: '' }));
       } else {
         console.error("Failed to post comment");
         const errorData = await response.json();
@@ -354,7 +326,6 @@ const Post = () => {
               });
 
               if (response.ok) {
-                // Update the comments state to remove the deleted comment
                 setComments((prevComments) => {
                   const updatedComments = { ...prevComments };
                   if (updatedComments[postId]) {
@@ -410,10 +381,7 @@ const Post = () => {
               });
 
               if (response.ok) {
-                // Update the posts state to remove the deleted post
                 setPosts(prevPosts => prevPosts.filter(post => post.id !== postId));
-                // Optionally, you might want to refetch all posts to ensure consistency
-                // fetchPosts();
               } else {
                 console.error("Failed to delete post");
                 const errorData = await response.json();
@@ -444,17 +412,17 @@ const Post = () => {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#0000ff" />
-        <Text>Loading posts...</Text>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2c3e50" />
+        <Text style={styles.loadingText}>Loading posts...</Text>
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.container}>
-        <Text>Error loading posts: {error.message}</Text>
+      <View style={styles.loadingContainer}>
+        <Text style={styles.errorText}>Error loading posts</Text>
       </View>
     );
   }
@@ -484,14 +452,16 @@ const Post = () => {
               disabled={deletingPost}
             >
               {deletingPost ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color="#7f8c8d" />
               ) : (
-                <Text style={styles.deleteIcon}>-</Text>
+                <Text style={styles.deleteIcon}>×</Text>
               )}
             </TouchableOpacity>
           )}
         </View>
+        
         {item.content && <Text style={styles.postContent}>{item.content}</Text>}
+        
         {imageAttachments.length > 0 && (
           <TouchableOpacity onPress={() => openImageModal(imageAttachments)}>
             <Image
@@ -506,33 +476,35 @@ const Post = () => {
             )}
           </TouchableOpacity>
         )}
+        
         {videoAttachments.length > 0 && (
           <PostVideo
             videoUrl={`https://bh-alumni-social-media-app.onrender.com/uploads/${videoAttachments[0].url}`}
             thumbnailUrl={videoAttachments[0].thumbnailUrl ? `https://bh-alumni-social-media-app.onrender.com/uploads/${videoAttachments[0].thumbnailUrl}` : null}
           />
         )}
+        
         <View style={styles.interactions}>
           <TouchableOpacity
-            style={[styles.likeButton, isLikedByUser && styles.likedButton]}
+            style={[styles.interactionButton, isLikedByUser && styles.likedButton]}
             onPress={() => handleLike(item.id)}
           >
-            <Text style={[styles.likeButtonText, isLikedByUser && styles.likedButtonText]}>
-              ❤️ {likeCount}
+            <Text style={[styles.interactionText, isLikedByUser && styles.likedText]}>
+              ♡ {likeCount}
             </Text>
           </TouchableOpacity>
+          
           <TouchableOpacity
-            style={styles.commentsButton}
+            style={styles.interactionButton}
             onPress={() =>
               setShowComments((prevShowComments) => ({
                 ...prevShowComments,
                 [item.id]: !prevShowComments[item.id],
               }))
             }
-            activeOpacity={1}
           >
-            <Text style={styles.commentsButtonText}>
-              💬 {postComments.length}
+            <Text style={styles.interactionText}>
+              {postComments.length} {postComments.length === 1 ? 'comment' : 'comments'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -542,31 +514,34 @@ const Post = () => {
             {postComments.length > 0 ? (
               postComments.map((comment) => (
                 <View key={comment.id} style={styles.commentItem}>
-                  <Text style={styles.commentAuthor}>
-                    {comment.user ? `${comment.user.firstName} ${comment.user.lastName || ''}:` : 'Unknown User:'}</Text>
-                  <Text style={styles.commentContent}>{comment.content}</Text>
+                  <View style={styles.commentContent}>
+                    <Text style={styles.commentAuthor}>
+                      {comment.user ? `${comment.user.firstName} ${comment.user.lastName || ''}` : 'Unknown User'}
+                    </Text>
+                    <Text style={styles.commentText}>{comment.content}</Text>
+                  </View>
                   {comment.userId === currentUserId && (
                     <TouchableOpacity
                       onPress={() => handleDeleteComment(item.id, comment.id)}
-                      style={styles.deleteButton}
+                      style={styles.deleteCommentButton}
                       disabled={isDeletingComment[comment.id]}
                     >
-                      <Text style={styles.deleteButtonText}>
-                        {isDeletingComment[comment.id] ? 'Deleting...' : '-'}
+                      <Text style={styles.deleteCommentText}>
+                        {isDeletingComment[comment.id] ? '...' : '×'}
                       </Text>
                     </TouchableOpacity>
                   )}
                 </View>
               ))
             ) : (
-              <Text>No comments yet.</Text>
+              <Text style={styles.noCommentsText}>No comments yet</Text>
             )}
 
-            {/* Add new comment input */}
             <View style={styles.newCommentContainer}>
               <TextInput
                 style={styles.newCommentInput}
                 placeholder="Add a comment..."
+                placeholderTextColor="#bdc3c7"
                 value={commentInputText}
                 onChangeText={(text) =>
                   setNewCommentText((prevText) => ({ ...prevText, [item.id]: text }))
@@ -578,7 +553,7 @@ const Post = () => {
                 disabled={submitting}
               >
                 <Text style={styles.postCommentButtonText}>
-                  {submitting ? 'Posting...' : 'Post'}
+                  {submitting ? '...' : 'Post'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -595,38 +570,45 @@ const Post = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerContainer}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      
+      {/* Header */}
+      <View style={styles.header}>
         <TouchableOpacity style={styles.headerButton}>
-          <Link href="/home" asChild>
-            <Text style={styles.headerButtonText}>Home</Text>
+          <Link href="/home" style={styles.headerButtonText}>
+            ← Home
           </Link>
         </TouchableOpacity>
-        <Text style={styles.header}>Posts</Text>
+        <Text style={styles.headerTitle}>Posts</Text>
         <TouchableOpacity style={styles.headerButton} onPress={() => router.push('/support')}>
           <Text style={styles.headerButtonText}>Support</Text>
         </TouchableOpacity>
       </View>
+
       <FlatList
         data={posts}
         renderItem={renderItem}
         keyExtractor={(item) => item.id ? item.id.toString() : Math.random().toString()}
         refreshing={refreshing}
         onRefresh={onRefresh}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContainer}
         ListFooterComponent={() => (
           <View style={styles.guidelinesContainer}>
-            <Text style={styles.guidelinesHeader}>Welcome to the Alumni App Posts Section!</Text>
-            <Text style={styles.guidelinesText}>Guidelines:</Text>
-            <Text style={styles.guidelineItem}>1. You must be a Beacon House Alumni.</Text>
-            <Text style={styles.guidelineItem}>2. There are NO rules as to speech: speak freely as you wish. Exceptions being anything illegal or harmful to others.</Text>
-            <Text style={styles.guidelineItem}>3. Contact <Text style={styles.emailLink}>bgbeaconhouse@gmail.com</Text> for any direct concerns or inquiries.</Text>
+            <Text style={styles.guidelinesHeader}>Community Guidelines</Text>
+            <Text style={styles.guidelineItem}>• Alumni community space</Text>
+            <Text style={styles.guidelineItem}>• Speak freely with respect</Text>
+            <Text style={styles.guidelineItem}>• Contact bgbeaconhouse@gmail.com for concerns</Text>
           </View>
         )}
-        ListFooterComponentStyle={{ marginBottom: 12 }}
       />
+
+      {/* Create Post Button */}
       <TouchableOpacity style={styles.createPostButton} onPress={() => router.push('/createPosts')}>
-        <Text style={styles.createPostButtonText}>Create Post</Text>
+        <Text style={styles.createPostButtonText}>+ New Post</Text>
       </TouchableOpacity>
 
+      {/* Image Modal */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -641,17 +623,16 @@ const Post = () => {
           >
             {modalImages.map((image, index) => (
               <View key={index} style={styles.modalPage}>
-            <Image
-    source={{ 
-        uri: image.uri,
-        cache: 'reload' // Force fresh load
-    }}
-    style={styles.modalImage}
-    resizeMode="contain"
-    // Reduce memory usage
-    resizeMethod="resize" // Android specific
-    fadeDuration={0}
-/>
+                <Image
+                  source={{ 
+                    uri: image.uri,
+                    cache: 'reload'
+                  }}
+                  style={styles.modalImage}
+                  resizeMode="contain"
+                  resizeMethod="resize"
+                  fadeDuration={0}
+                />
               </View>
             ))}
           </ScrollView>
@@ -664,70 +645,110 @@ const Post = () => {
   );
 };
 
+export default Post
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#ffffff',
   },
-  headerContainer: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-  },
-  header: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    flex: 1,
+    paddingTop: 50,
+    paddingHorizontal: 30,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ecf0f1',
   },
   headerButton: {
-    padding: 10,
+    minWidth: 60,
   },
   headerButtonText: {
-    color: 'blue',
-    fontWeight: 'bold',
+    color: '#7f8c8d',
+    fontSize: 16,
+    fontWeight: '300',
+    letterSpacing: 0.5,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '100',
+    color: '#2c3e50',
+    letterSpacing: 2,
+  },
+  listContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#7f8c8d',
+    fontWeight: '300',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#e74c3c',
+    fontWeight: '300',
   },
   postItem: {
-    backgroundColor: 'white',
-    padding: 16,
-    marginBottom: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
+    backgroundColor: '#ffffff',
+    marginBottom: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ecf0f1',
+    paddingBottom: 20,
   },
   postHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   authorName: {
-    fontSize: 12,
-    color: 'gray',
-    marginBottom: 4,
-    flexShrink: 1,
+    fontSize: 14,
+    color: '#7f8c8d',
+    fontWeight: '300',
+    letterSpacing: 0.5,
+  },
+  deletePostButton: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteIcon: {
+    color: '#bdc3c7',
+    fontSize: 20,
+    fontWeight: '300',
   },
   postContent: {
     fontSize: 16,
-    marginBottom: 8,
+    color: '#2c3e50',
+    lineHeight: 24,
+    marginBottom: 16,
+    fontWeight: '300',
   },
   postImage: {
     width: '100%',
-    height: 200,
-    resizeMode: 'cover',
+    height: 240,
     borderRadius: 8,
-    marginTop: 8,
+    marginBottom: 16,
   },
   videoPlaceholder: {
-    backgroundColor: '#f0f0f0',
-    height: 200,
+    backgroundColor: '#f8f9fa',
+    height: 240,
     width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 8,
-    marginTop: 8,
+    marginBottom: 16,
     overflow: 'hidden',
   },
   thumbnail: {
@@ -740,7 +761,7 @@ const styles = StyleSheet.create({
   noThumbnailPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#ccc',
+    backgroundColor: '#ecf0f1',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -752,169 +773,163 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.3)', // Semi-transparent background for better icon visibility
+    backgroundColor: 'rgba(0,0,0,0.1)',
   },
-  commentsButton: {
-    backgroundColor: '#e0e0e0',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 5,
-    marginTop: 8,
-    marginLeft: 8,
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  commentsButtonText: {
-    color: '#333',
-    textAlign: 'center',
-    fontWeight: 'bold',
-  },
-  commentsSection: {
-    marginTop: 16,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-  },
-  commentsHeader: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  commentItem: {
-    backgroundColor: '#f8f8f8',
-    padding: 8,
-    marginBottom: 4,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  commentAuthor: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 2,
-    flexShrink: 1,
-  },
-  commentContent: {
-    fontSize: 14,
-    flexShrink: 1,
-  },
-  interactions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    marginTop: 8,
-  },
-  likeButton: {
-    backgroundColor: '#f0f0f0',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 5,
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 8,
-    marginTop: 7,
-  },
-  likeButtonText: {
-    color: '#333',
-    fontWeight: 'bold',
-  },
-  likedButton: {
-    backgroundColor: '#e91e63',
-  },
-  likedButtonText: {
-    color: 'white',
-  },
-  newCommentContainer: {
-    flexDirection: 'row',
-    marginTop: 10,
-    alignItems: 'center',
-  },
-  newCommentInput: {
-    flex: 1,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 5,
-    padding: 8,
-    marginRight: 8,
-  },
-  postCommentButton: {
-    backgroundColor: 'green',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 5,
-  },
-  postCommentButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  deleteButton: {
-    backgroundColor: '#ff6347', // Red background
-    // paddingVertical: 1,       // Adjust vertical padding as needed
-    paddingHorizontal: 10,      // Adjust horizontal padding as needed
-    borderRadius: 5,          // Optional: Add some rounding
-  },
-  deleteButtonText: {
-    color: 'white',           // White dash
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  guidelinesContainer: {
-    backgroundColor: 'white',
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  guidelinesHeader: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  guidelinesText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  guidelineItem: {
-    fontSize: 14,
-    marginLeft: 8,
-    marginBottom: 2,
-  },
-  emailLink: {
-    color: 'blue',
-    textDecorationLine: 'underline',
-  },
-  createPostButton: {
-    backgroundColor: 'green',
-    padding: 10,
-    borderRadius: 5,
-    marginTop: 16,
-    alignSelf: 'center',
-  },
-  createPostButtonText: {
-    color: 'white',
-    textAlign: 'center',
-    fontWeight: 'bold',
+  playIcon: {
+    color: '#ffffff',
+    fontSize: 32,
+    fontWeight: '300',
   },
   multipleImagesOverlay: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 10,
+    top: 12,
+    right: 12,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 12,
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
   },
   multipleImagesText: {
     color: 'white',
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: '300',
+  },
+  interactions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  interactionButton: {
+    marginRight: 24,
+  },
+  interactionText: {
+    fontSize: 14,
+    color: '#7f8c8d',
+    fontWeight: '300',
+    letterSpacing: 0.5,
+  },
+  likedButton: {
+    // Keep same styling, just different text color
+  },
+  likedText: {
+    color: '#e74c3c',
+  },
+  commentsSection: {
+    borderTopWidth: 1,
+    borderTopColor: '#ecf0f1',
+    paddingTop: 16,
+  },
+  commentItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  commentContent: {
+    flex: 1,
+  },
+  commentAuthor: {
+    fontSize: 12,
+    color: '#7f8c8d',
+    fontWeight: '300',
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  commentText: {
+    fontSize: 14,
+    color: '#2c3e50',
+    fontWeight: '300',
+    lineHeight: 20,
+  },
+  deleteCommentButton: {
+    marginLeft: 12,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteCommentText: {
+    color: '#bdc3c7',
+    fontSize: 16,
+    fontWeight: '300',
+  },
+  noCommentsText: {
+    fontSize: 14,
+    color: '#bdc3c7',
+    fontStyle: 'italic',
+    marginBottom: 12,
+    fontWeight: '300',
+  },
+  newCommentContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  newCommentInput: {
+    flex: 1,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ecf0f1',
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#2c3e50',
+    fontWeight: '300',
+    marginRight: 16,
+  },
+  postCommentButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  postCommentButtonText: {
+    color: '#2c3e50',
+    fontSize: 14,
+    fontWeight: '300',
+    letterSpacing: 0.5,
+  },
+  guidelinesContainer: {
+    backgroundColor: '#f8f9fa',
+    padding: 20,
+    borderRadius: 8,
+    marginVertical: 20,
+    borderWidth: 1,
+    borderColor: '#ecf0f1',
+  },
+  guidelinesHeader: {
+    fontSize: 16,
+    fontWeight: '300',
+    color: '#2c3e50',
+    marginBottom: 12,
+    textAlign: 'center',
+    letterSpacing: 1,
+  },
+  guidelineItem: {
+    fontSize: 14,
+    color: '#7f8c8d',
+    fontWeight: '300',
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  createPostButton: {
+    position: 'absolute',
+    bottom: 30,
+    right: 30,
+    backgroundColor: '#2c3e50',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    shadowColor: '#2c3e50',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  createPostButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '300',
+    letterSpacing: 0.5,
   },
   modalContainer: {
     flex: 1,
@@ -928,21 +943,24 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    bottom: 20,
-    padding: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 5,
+    bottom: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
   },
   closeButtonText: {
     color: 'white',
     fontSize: 16,
+    fontWeight: '300',
+    letterSpacing: 0.5,
   },
   modalScrollView: {
     width: '100%',
     height: '80%',
   },
   modalPage: {
-    width: screenWidth, // Each page takes the full screen width
+    width: screenWidth,
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
@@ -951,21 +969,5 @@ const styles = StyleSheet.create({
     width: '90%',
     height: '90%',
     resizeMode: 'contain',
-   
-  },
-  deletePostButton: {
-    backgroundColor: '#d9534f',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  deleteIcon: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
 });
-
-export default Post;

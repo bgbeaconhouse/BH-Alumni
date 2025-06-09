@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, TouchableOpacity, TextInput, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, TextInput, Alert, ScrollView, KeyboardAvoidingView, Platform, StatusBar } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
@@ -9,6 +9,7 @@ const Login = () => {
     password: '',
   });
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
   const handleChange = (field, value) => {
@@ -16,9 +17,15 @@ const Login = () => {
   };
 
   const handleSubmit = async () => {
+    // Basic validation
+    if (!formData.username.trim() || !formData.password.trim()) {
+      Alert.alert('Validation Error', 'Please fill in all fields');
+      return;
+    }
+
     setLoading(true);
     try {
-      const response = await fetch('https://bh-alumni-social-media-app.onrender.com/api/login', { // Use your actual API endpoint
+      const response = await fetch('https://bh-alumni-social-media-app.onrender.com/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -43,9 +50,6 @@ const Login = () => {
         throw new Error(errorMessage);
       }
 
-      // ----------------------------------------------------------------------
-      // Enhanced Debugging of the Response
-      // ----------------------------------------------------------------------
       let result;
       try {
         result = await response.json();
@@ -61,8 +65,8 @@ const Login = () => {
         return;
       }
 
-      console.log("Full server response:", result); // Log the entire response
-      const tokenToStore = result.token; // Attempt to get the token
+      console.log("Full server response:", result);
+      const tokenToStore = result.token;
 
       if (tokenToStore) {
         try {
@@ -94,9 +98,8 @@ const Login = () => {
         setLoading(false);
         return;
       }
-      // ----------------------------------------------------------------------
 
-      Alert.alert('Login Successful', result.message || 'Login successful!', [
+      Alert.alert('Login Successful', result.message || 'Welcome back!', [
         {
           text: 'OK',
           onPress: () => {
@@ -108,7 +111,7 @@ const Login = () => {
       setFormData({ username: '', password: '' });
 
     } catch (error) {
-      Alert.alert('Error', error.message);
+      Alert.alert('Login Failed', error.message);
     } finally {
       setLoading(false);
     }
@@ -120,34 +123,92 @@ const Login = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
     >
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.loginText}>Login</Text>
+        {/* Back Button */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton}>
+            <Link href="/" style={styles.backLink}>
+              ← Back
+            </Link>
+          </TouchableOpacity>
+        </View>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Username"
-          value={formData.username}
-          onChangeText={(text) => handleChange('username', text)}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          secureTextEntry
-          value={formData.password}
-          onChangeText={(text) => handleChange('password', text)}
-        />
+        {/* Main Content */}
+        <View style={styles.content}>
+          {/* Brand Section */}
+          <View style={styles.brandSection}>
+            <Text style={styles.logo}>BH</Text>
+            <Text style={styles.title}>Welcome Back</Text>
+          </View>
 
-        <TouchableOpacity style={styles.loginButton} onPress={handleSubmit} disabled={loading}>
-          <Text style={styles.loginButtonText}>
-            {loading ? 'Logging In...' : 'Login'}
-          </Text>
-        </TouchableOpacity>
+          {/* Login Form */}
+          <View style={styles.formSection}>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="Username"
+                placeholderTextColor="#bdc3c7"
+                value={formData.username}
+                onChangeText={(text) => handleChange('username', text)}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
 
-        <TouchableOpacity style={styles.backButton}>
-          <Link href="/" style={styles.backLink}>
-            Back
-          </Link>
-        </TouchableOpacity>
+            <View style={styles.inputContainer}>
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Password"
+                  placeholderTextColor="#bdc3c7"
+                  secureTextEntry={!showPassword}
+                  value={formData.password}
+                  onChangeText={(text) => handleChange('password', text)}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Text style={styles.eyeText}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.loginButton, loading && styles.loginButtonDisabled]} 
+              onPress={handleSubmit} 
+              disabled={loading}
+            >
+              <Text style={styles.loginButtonText}>
+                {loading ? 'Signing In...' : 'Sign In'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.forgotPasswordButton}
+              onPress={() => {
+                Alert.alert(
+                  'Forgot Password',
+                  'To reset your password, please email us at:\n\nbgbeaconhouse@gmail.com\n\nInclude your username and we\'ll help you reset your password.',
+                  [
+                    { text: 'OK', style: 'default' }
+                  ]
+                );
+              }}
+            >
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Beacon House • Est. 1970</Text>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -158,48 +219,117 @@ export default Login;
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
+    backgroundColor: '#ffffff',
   },
-  loginText: {
+  header: {
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingHorizontal: 30,
+    paddingBottom: 20,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+  },
+  backLink: {
+    color: '#7f8c8d',
+    fontSize: 16,
+    fontWeight: '300',
+    letterSpacing: 0.5,
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+  },
+  brandSection: {
+    alignItems: 'center',
+    marginBottom: 60,
+  },
+  logo: {
+    fontSize: 48,
+    fontWeight: '100',
+    color: '#2c3e50',
+    letterSpacing: 8,
+    marginBottom: 16,
+  },
+  title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: '300',
+    color: '#2c3e50',
+    letterSpacing: 1,
+  },
+  formSection: {
+    width: '100%',
+    maxWidth: 280,
+    alignSelf: 'center',
+  },
+  inputContainer: {
     marginBottom: 20,
   },
   input: {
-    width: '100%',
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    marginBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ecf0f1',
+    paddingVertical: 16,
+    fontSize: 16,
+    color: '#2c3e50',
+    fontWeight: '300',
+    letterSpacing: 0.5,
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ecf0f1',
+  },
+  passwordInput: {
+    flex: 1,
+    paddingVertical: 16,
+    fontSize: 16,
+    color: '#2c3e50',
+    fontWeight: '300',
+    letterSpacing: 0.5,
+  },
+  eyeButton: {
+    paddingVertical: 16,
+    paddingLeft: 10,
+  },
+  eyeText: {
+    fontSize: 16,
+    color: '#bdc3c7',
   },
   loginButton: {
-    backgroundColor: '#007bff',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 5,
-    marginTop: 20,
-    width: '100%',
+    backgroundColor: '#2c3e50',
+    paddingVertical: 18,
+    borderRadius: 8,
+    marginTop: 40,
+    marginBottom: 20,
     alignItems: 'center',
   },
+  loginButtonDisabled: {
+    backgroundColor: '#bdc3c7',
+  },
   loginButtonText: {
-    color: 'white',
+    color: '#ffffff',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '500',
+    letterSpacing: 0.5,
   },
-  backButton: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    padding: 10,
-    borderRadius: 5,
-    backgroundColor: '#f0f0f0',
+  forgotPasswordButton: {
+    alignItems: 'center',
   },
-  backLink: {
-    color: '#007bff',
-    fontSize: 16,
-    fontWeight: 'bold',
+  forgotPasswordText: {
+    color: '#7f8c8d',
+    fontSize: 14,
+    fontWeight: '300',
+    letterSpacing: 0.5,
+  },
+  footer: {
+    paddingBottom: 40,
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: 12,
+    color: '#bdc3c7',
+    fontWeight: '300',
+    letterSpacing: 1,
   },
 });

@@ -1,7 +1,7 @@
-import { StyleSheet, Text, View, TouchableOpacity, TextInput, Button, ScrollView, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, StatusBar } from 'react-native';
 import { useState, useEffect } from 'react';
 import { Link, useRouter } from 'expo-router';
-import * as SecureStore from 'expo-secure-store'; // Changed from AsyncStorage
+import * as SecureStore from 'expo-secure-store';
 import * as ImagePicker from 'expo-image-picker';
 
 const CreatePosts = () => {
@@ -15,7 +15,6 @@ const CreatePosts = () => {
   useEffect(() => {
     const getToken = async () => {
       try {
-        // Changed from AsyncStorage.getItem to SecureStore.getItemAsync
         const token = await SecureStore.getItemAsync('authToken');
         if (token) {
           setAuthToken(token);
@@ -115,170 +114,241 @@ const CreatePosts = () => {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.scrollViewContent}>
-      <View style={styles.container}>
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      
+      {/* Header */}
+      <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.push('/post')}>
-          <Text style={styles.backButtonText}>Back</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.title}>Create New Post</Text>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Content:</Text>
-          <TextInput
-            style={[styles.input, styles.multilineInput]}
-            placeholder="Enter content"
-            multiline
-            numberOfLines={4}
-            value={content}
-            onChangeText={setContent}
-          />
-        </View>
-
-        <TouchableOpacity style={styles.uploadButton} onPress={pickMedia} disabled={isUploadingMedia}>
-          <Text style={styles.uploadButtonText}>
-            {isUploadingMedia ? 'Uploading Media...' : 'Upload Media'}
-          </Text>
-          {isUploadingMedia && <ActivityIndicator style={{ marginLeft: 10 }} color="white" />}
-        </TouchableOpacity>
-
-        {media.length > 0 && (
-          <View style={styles.mediaPreview}>
-            <Text style={styles.label}>Selected Media:</Text>
-            {media.map((item, index) => (
-              <Text key={index} style={styles.mediaItemText}>{item.uri.substring(item.uri.lastIndexOf('/') + 1)}</Text>
-            ))}
-          </View>
-        )}
-
-        <TouchableOpacity
-          style={styles.createButton}
-          onPress={handleSubmit}
-          disabled={isSubmitting}
-        >
-          <Text style={styles.createButtonText}>
-            {isSubmitting ? 'Creating Post...' : 'Create Post'}
-          </Text>
+          <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Brand Section */}
+        <View style={styles.brandSection}>
+          <Text style={styles.logo}>BH</Text>
+          <Text style={styles.title}>New Post</Text>
+          <Text style={styles.subtitle}>Share with your community</Text>
+        </View>
+
+        {/* Form Section */}
+        <View style={styles.formSection}>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="What's on your mind?"
+              placeholderTextColor="#bdc3c7"
+              multiline
+              numberOfLines={6}
+              value={content}
+              onChangeText={setContent}
+              textAlignVertical="top"
+            />
+          </View>
+
+          <TouchableOpacity 
+            style={[styles.mediaButton, isUploadingMedia && styles.disabledButton]} 
+            onPress={pickMedia} 
+            disabled={isUploadingMedia}
+          >
+            {isUploadingMedia ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#7f8c8d" />
+                <Text style={styles.loadingText}>Selecting...</Text>
+              </View>
+            ) : (
+              <Text style={styles.mediaButtonText}>Add Photos/Videos</Text>
+            )}
+          </TouchableOpacity>
+
+          {media.length > 0 && (
+            <View style={styles.mediaPreview}>
+              <Text style={styles.mediaCount}>{media.length} file{media.length !== 1 ? 's' : ''} selected</Text>
+              {media.slice(0, 3).map((item, index) => (
+                <Text key={index} style={styles.mediaItemText}>
+                  {item.uri.substring(item.uri.lastIndexOf('/') + 1)}
+                </Text>
+              ))}
+              {media.length > 3 && (
+                <Text style={styles.moreMediaText}>and {media.length - 3} more...</Text>
+              )}
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={[styles.submitButton, (isSubmitting || (!content.trim() && media.length === 0)) && styles.disabledButton]}
+            onPress={handleSubmit}
+            disabled={isSubmitting || (!content.trim() && media.length === 0)}
+          >
+            {isSubmitting ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#ffffff" />
+                <Text style={styles.submitButtonText}>Publishing...</Text>
+              </View>
+            ) : (
+              <Text style={styles.submitButtonText}>Publish Post</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      {/* Footer */}
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>Beacon House • Connected in recovery</Text>
+      </View>
+    </View>
   );
 };
 
 export default CreatePosts;
 
 const styles = StyleSheet.create({
-  scrollViewContent: {
-    flexGrow: 1,
-  },
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#ffffff',
+  },
+  header: {
+    paddingTop: 50,
+    paddingHorizontal: 30,
+    paddingBottom: 20,
   },
   backButton: {
-    backgroundColor: '#e0e0e0',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    width: 80,
-    alignItems: 'center',
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    alignSelf: 'flex-start',
   },
   backButtonText: {
+    color: '#7f8c8d',
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '300',
+    letterSpacing: 0.5,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 30,
+  },
+  brandSection: {
+    alignItems: 'center',
+    marginBottom: 50,
+  },
+  logo: {
+    fontSize: 48,
+    fontWeight: '100',
+    color: '#2c3e50',
+    letterSpacing: 8,
+    marginBottom: 16,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 25,
-    textAlign: 'center',
+    fontSize: 24,
+    fontWeight: '300',
+    color: '#2c3e50',
+    marginBottom: 8,
+    letterSpacing: 1,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#7f8c8d',
+    fontWeight: '300',
+    letterSpacing: 0.5,
+  },
+  formSection: {
+    flex: 1,
+    maxWidth: 400,
+    alignSelf: 'center',
+    width: '100%',
   },
   inputContainer: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 16,
-    marginBottom: 8,
-    fontWeight: 'bold',
-    color: '#555',
+    marginBottom: 30,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ecf0f1',
+    paddingVertical: 20,
     fontSize: 16,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  multilineInput: {
+    color: '#2c3e50',
+    fontWeight: '300',
+    letterSpacing: 0.5,
     minHeight: 120,
     textAlignVertical: 'top',
   },
-  uploadButton: {
-    backgroundColor: '#FF9800',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
+  mediaButton: {
+    backgroundColor: 'transparent',
+    paddingVertical: 16,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#ecf0f1',
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  mediaButtonText: {
+    color: '#7f8c8d',
+    fontSize: 16,
+    fontWeight: '300',
+    letterSpacing: 0.5,
+  },
+  loadingContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
   },
-  uploadButtonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
+  loadingText: {
+    marginLeft: 8,
+    color: '#7f8c8d',
+    fontSize: 16,
+    fontWeight: '300',
+    letterSpacing: 0.5,
   },
   mediaPreview: {
-    marginTop: 15,
-    padding: 10,
-    backgroundColor: '#e9e9e9',
+    backgroundColor: '#f8f9fa',
     borderRadius: 8,
+    padding: 16,
+    marginBottom: 30,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#ecf0f1',
+  },
+  mediaCount: {
+    fontSize: 14,
+    color: '#2c3e50',
+    fontWeight: '300',
+    marginBottom: 8,
+    letterSpacing: 0.5,
   },
   mediaItemText: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 5,
+    fontSize: 12,
+    color: '#7f8c8d',
+    fontWeight: '300',
+    marginBottom: 4,
+    letterSpacing: 0.5,
   },
-  createButton: {
-    backgroundColor: '#2196F3',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
+  moreMediaText: {
+    fontSize: 12,
+    color: '#bdc3c7',
+    fontWeight: '300',
+    fontStyle: 'italic',
+    letterSpacing: 0.5,
+  },
+  submitButton: {
+    backgroundColor: '#2c3e50',
+    paddingVertical: 18,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 25,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
+    marginTop: 20,
   },
-  createButtonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
+  submitButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '300',
+    letterSpacing: 0.5,
+  },
+  footer: {
+    paddingBottom: 30,
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: 12,
+    color: '#bdc3c7',
+    fontWeight: '300',
+    letterSpacing: 1,
   },
 });

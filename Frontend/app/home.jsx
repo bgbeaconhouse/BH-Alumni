@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, StatusBar } from 'react-native';
 import React from 'react';
 import { Link, useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
@@ -45,26 +45,49 @@ const Home = () => {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-        <Text style={styles.logoutText}>Logout</Text>
-      </TouchableOpacity>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.logoutButton} onPress={logout}>
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
+      </View>
 
-      <View style={styles.centerContainer}>
-        <TouchableOpacity style={styles.postButton}>
-          <Link href="/post" style={styles.buttonText}>
-            Posts
-          </Link>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.messageButton}>
-          <Link href="/messaging" style={styles.buttonText}>
-            Messages
-          </Link>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.shopButton}>
-          <Link href="/shop" style={styles.buttonText}>
-            Shop
-          </Link>
-        </TouchableOpacity>
+      {/* Main Content */}
+      <View style={styles.content}>
+        {/* Brand Section */}
+        <View style={styles.brandSection}>
+          <Text style={styles.logo}>BH</Text>
+          <Text style={styles.welcomeText}>Welcome Back</Text>
+          <Text style={styles.subtitle}>Your recovery community</Text>
+        </View>
+
+        {/* Menu Options */}
+        <View style={styles.menuSection}>
+          <TouchableOpacity style={[styles.menuButton, styles.primaryButton]}>
+            <Link href="/post" style={styles.primaryMenuLink}>
+              <Text style={styles.primaryMenuText}>Posts</Text>
+            </Link>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuButton}>
+            <Link href="/messaging" style={styles.menuLink}>
+              <Text style={styles.menuText}>Messages</Text>
+            </Link>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuButton}>
+            <Link href="/shop" style={styles.menuLink}>
+              <Text style={styles.menuText}>Shop</Text>
+            </Link>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Footer */}
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>Beacon House • Connected in recovery</Text>
       </View>
     </View>
   );
@@ -75,56 +98,101 @@ export default Home;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+  },
+  header: {
+    paddingTop: 50,
+    paddingHorizontal: 30,
+    paddingBottom: 20,
+    alignItems: 'flex-end',
   },
   logoutButton: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    padding: 10,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 5,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
   },
   logoutText: {
-    color: '#007bff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    color: '#7f8c8d',
+    fontSize: 14,
+    fontWeight: '300',
+    letterSpacing: 0.5,
   },
-  centerContainer: {
-    alignItems: 'center',
+  content: {
+    flex: 1,
     justifyContent: 'center',
+    paddingHorizontal: 40,
   },
-  shopButton: {
-    backgroundColor: '#007bff',
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 10,
+  brandSection: {
+    alignItems: 'center',
+    marginBottom: 60,
+  },
+  logo: {
+    fontSize: 48,
+    fontWeight: '100',
+    color: '#2c3e50',
+    letterSpacing: 8,
     marginBottom: 20,
-    width: 200,
+  },
+  welcomeText: {
+    fontSize: 24,
+    fontWeight: '300',
+    color: '#2c3e50',
+    marginBottom: 8,
+    letterSpacing: 1,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#7f8c8d',
+    fontWeight: '300',
+    letterSpacing: 0.5,
+  },
+  menuSection: {
+    width: '100%',
+    maxWidth: 280,
+    alignSelf: 'center',
+  },
+  menuButton: {
+    backgroundColor: 'transparent',
+    paddingVertical: 18,
+    borderRadius: 8,
+    marginBottom: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ecf0f1',
+  },
+  primaryButton: {
+    backgroundColor: '#2c3e50',
+    borderColor: '#2c3e50',
+  },
+  menuLink: {
+    width: '100%',
     alignItems: 'center',
   },
-  messageButton: {
-    backgroundColor: '#007bff',
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 10,
-    marginBottom: 20,
-    width: 200,
+  primaryMenuLink: {
+    width: '100%',
     alignItems: 'center',
   },
-  postButton: {
-    backgroundColor: '#007bff',
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 10,
-    marginBottom: 20,
-    width: 200,
+  menuText: {
+    color: '#2c3e50',
+    fontSize: 16,
+    fontWeight: '300',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  primaryMenuText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '300',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  footer: {
+    paddingBottom: 40,
     alignItems: 'center',
   },
-  buttonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
+  footerText: {
+    fontSize: 12,
+    color: '#bdc3c7',
+    fontWeight: '300',
+    letterSpacing: 1,
   },
 });

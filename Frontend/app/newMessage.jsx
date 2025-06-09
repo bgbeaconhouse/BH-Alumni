@@ -10,6 +10,7 @@ import {
   Alert,
   Platform,
   KeyboardAvoidingView,
+  StatusBar,
 } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { useRouter } from 'expo-router';
@@ -230,33 +231,64 @@ const NewMessage = () => {
     }
   };
 
+  if (loading && users.length === 0) {
+    return (
+      <View style={styles.loadingContainer}>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+        <ActivityIndicator size="large" color="#2c3e50" />
+        <Text style={styles.loadingText}>Loading users...</Text>
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.push('/messaging')}>
-          <Text style={styles.backButtonText}>Back</Text>
+        <TouchableOpacity style={styles.headerButton} onPress={() => router.push('/messaging')}>
+          <Text style={styles.headerButtonText}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerText}>New Message</Text>
+        <Text style={styles.headerTitle}>New Message</Text>
+        <View style={styles.headerButton} />
       </View>
 
+      {/* Search Container */}
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Search users..."
+          placeholder="Search community members..."
+          placeholderTextColor="#bdc3c7"
           value={searchTerm}
           onChangeText={setSearchTerm}
         />
       </View>
 
-      <Text style={styles.sectionTitle}>Select Recipients</Text>
-      {loading ? (
-        <ActivityIndicator size="large" color="#0000ff" />
-      ) : error ? (
-        <Text style={styles.errorText}>{error}</Text>
+      {/* Selected Users Display */}
+      {selectedUsers.length > 0 && (
+        <View style={styles.selectedContainer}>
+          <Text style={styles.selectedLabel}>To: {selectedUsers.map(u => u.firstName).join(', ')}</Text>
+        </View>
+      )}
+
+      {/* Users List */}
+      {error ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Unable to load users</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchUsers}>
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      ) : users.length === 0 && searchTerm ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No users found</Text>
+          <Text style={styles.emptySubtext}>Try searching with different keywords</Text>
+        </View>
       ) : (
         <FlatList
           data={users}
@@ -266,124 +298,240 @@ const NewMessage = () => {
               style={[styles.userItem, isUserSelected(item) && styles.selectedUserItem]}
               onPress={() => handleUserSelect(item)}
             >
-              <Text>{item.firstName} {item.lastName}</Text>
+              <View style={styles.userContent}>
+                <Text style={styles.userName}>{item.firstName} {item.lastName}</Text>
+                {isUserSelected(item) && (
+                  <Text style={styles.selectedIndicator}>✓</Text>
+                )}
+              </View>
             </TouchableOpacity>
           )}
-          contentContainerStyle={{ flexGrow: 1 }}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
         />
       )}
 
+      {/* Initial Message Input */}
       {selectedUsers.length > 0 && (
-        <View style={styles.initialMessageContainer}>
-          <Text style={styles.sectionTitle}>Initial Message (Optional)</Text>
+        <View style={styles.messageContainer}>
           <TextInput
-            style={styles.initialMessageInput}
-            placeholder="Type your first message..."
+            style={styles.messageInput}
+            placeholder="Write your first message..."
+            placeholderTextColor="#bdc3c7"
             value={initialMessage}
             onChangeText={setInitialMessage}
             multiline
             numberOfLines={3}
+            textAlignVertical="top"
           />
         </View>
       )}
 
+      {/* Create Button */}
       <TouchableOpacity
-        style={styles.createButton}
+        style={[
+          styles.createButton,
+          (loading || selectedUsers.length === 0) && styles.createButtonDisabled
+        ]}
         onPress={handleCreateConversation}
         disabled={loading || selectedUsers.length === 0}
       >
-        <Text style={styles.createButtonText}>{loading ? 'Creating...' : 'Create Conversation'}</Text>
+        <Text style={[
+          styles.createButtonText,
+          (loading || selectedUsers.length === 0) && styles.createButtonTextDisabled
+        ]}>
+          {loading ? 'Creating...' : 'Start Conversation'}
+        </Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
   );
 };
 
+export default NewMessage
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    paddingHorizontal: 10,
-    backgroundColor: '#f4f4f4',
+    backgroundColor: '#ffffff',
   },
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingHorizontal: 30,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ecf0f1',
   },
-  backButton: {
-    padding: 10,
-    marginRight: 10,
+  headerButton: {
+    minWidth: 60,
   },
-  backButtonText: {
-    color: '#007bff',
+  headerButtonText: {
+    color: '#7f8c8d',
     fontSize: 16,
+    fontWeight: '300',
+    letterSpacing: 0.5,
   },
-  headerText: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '100',
+    color: '#2c3e50',
+    letterSpacing: 2,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#7f8c8d',
+    fontWeight: '300',
+    letterSpacing: 0.5,
   },
   searchContainer: {
-    marginBottom: 15,
+    paddingHorizontal: 30,
+    paddingTop: 20,
+    paddingBottom: 10,
   },
   searchInput: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderRadius: 8,
     fontSize: 16,
+    fontWeight: '300',
+    color: '#2c3e50',
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#ecf0f1',
+    letterSpacing: 0.5,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 15,
-    marginBottom: 10,
-    color: '#333',
-  },
-  userItem: {
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  selectedUserItem: {
-    backgroundColor: '#d4edda',
-    borderColor: '#c3e6cb',
-  },
-  initialMessageContainer: {
-    marginTop: 20,
-  },
-  initialMessageInput: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 15,
+  selectedContainer: {
+    paddingHorizontal: 30,
     paddingVertical: 10,
-    borderRadius: 8,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    textAlignVertical: 'top',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ecf0f1',
   },
-  createButton: {
-    backgroundColor: '#28a745',
-    paddingVertical: 15,
-    borderRadius: 8,
+  selectedLabel: {
+    fontSize: 14,
+    color: '#7f8c8d',
+    fontWeight: '300',
+    letterSpacing: 0.5,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 25,
-  },
-  createButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    paddingHorizontal: 40,
   },
   errorText: {
-    color: 'red',
-    fontSize: 16,
-    marginTop: 10,
+    fontSize: 18,
+    color: '#e74c3c',
+    fontWeight: '300',
     textAlign: 'center',
+    marginBottom: 30,
+    letterSpacing: 0.5,
+  },
+  retryButton: {
+    backgroundColor: '#2c3e50',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '300',
+    letterSpacing: 0.5,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  emptyText: {
+    fontSize: 18,
+    color: '#7f8c8d',
+    fontWeight: '300',
+    marginBottom: 8,
+    letterSpacing: 0.5,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#bdc3c7',
+    fontWeight: '300',
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  listContent: {
+    paddingHorizontal: 30,
+    paddingTop: 10,
+    paddingBottom: 20,
+  },
+  userItem: {
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ecf0f1',
+  },
+  selectedUserItem: {
+    backgroundColor: '#f8f9fa',
+  },
+  userContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  userName: {
+    fontSize: 16,
+    fontWeight: '300',
+    color: '#2c3e50',
+    letterSpacing: 0.5,
+  },
+  selectedIndicator: {
+    fontSize: 16,
+    color: '#2c3e50',
+    fontWeight: '300',
+  },
+  messageContainer: {
+    paddingHorizontal: 30,
+    paddingVertical: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#ecf0f1',
+  },
+  messageInput: {
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderRadius: 8,
+    fontSize: 16,
+    fontWeight: '300',
+    color: '#2c3e50',
+    borderWidth: 1,
+    borderColor: '#ecf0f1',
+    letterSpacing: 0.5,
+    minHeight: 80,
+  },
+  createButton: {
+    backgroundColor: '#2c3e50',
+    marginHorizontal: 30,
+    marginVertical: 20,
+    paddingVertical: 18,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  createButtonDisabled: {
+    backgroundColor: '#ecf0f1',
+  },
+  createButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '300',
+    letterSpacing: 0.5,
+  },
+  createButtonTextDisabled: {
+    color: '#bdc3c7',
   },
 });
-
-export default NewMessage;
