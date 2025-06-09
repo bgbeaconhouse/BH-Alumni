@@ -251,9 +251,11 @@ const NewMessage = () => {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerButton} onPress={() => router.push('/messaging')}>
-          <Text style={styles.headerButtonText}>← Back</Text>
-        </TouchableOpacity>
+        <View style={styles.headerButton}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.push('/messaging')}>
+            <Text style={styles.headerButtonText}>← Back</Text>
+          </TouchableOpacity>
+        </View>
         <Text style={styles.headerTitle}>New Message</Text>
         <View style={styles.headerButton} />
       </View>
@@ -347,7 +349,8 @@ const NewMessage = () => {
   );
 };
 
-export default NewMessage
+export default NewMessage;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -358,13 +361,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingTop: Platform.OS === 'ios' ? 50 : 30,
-    paddingHorizontal: 30,
+    paddingHorizontal: Platform.OS === 'ios' ? 30 : 20,
     paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#ecf0f1',
   },
   headerButton: {
-    minWidth: 60,
+    minWidth: Platform.OS === 'ios' ? 60 : 80,
+    alignItems: Platform.OS === 'ios' ? 'flex-start' : 'center',
+  },
+  backButton: {
+    alignItems: 'flex-start',
   },
   headerButtonText: {
     color: '#7f8c8d',
@@ -377,6 +384,8 @@ const styles = StyleSheet.create({
     fontWeight: '100',
     color: '#2c3e50',
     letterSpacing: 2,
+    flex: 1,
+    textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,

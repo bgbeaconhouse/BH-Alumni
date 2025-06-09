@@ -207,7 +207,7 @@ const Login = () => {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Beacon House • Est. 1970</Text>
+          <Text style={styles.footerText}>Beacon House • Est. 1974</Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

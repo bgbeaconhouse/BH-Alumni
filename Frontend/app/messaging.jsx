@@ -94,13 +94,17 @@ const Messaging = () => {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerButton} onPress={() => router.push('/home')}>
-          <Text style={styles.headerButtonText}>← Home</Text>
-        </TouchableOpacity>
+        <View style={styles.headerButton}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.push('/home')}>
+            <Text style={styles.headerButtonText}>← Home</Text>
+          </TouchableOpacity>
+        </View>
         <Text style={styles.headerTitle}>Messages</Text>
-        <TouchableOpacity style={styles.headerButton} onPress={handleNewMessagePress}>
-          <Text style={styles.headerButtonText}>New</Text>
-        </TouchableOpacity>
+        <View style={styles.headerButton}>
+          <TouchableOpacity style={styles.newButton} onPress={handleNewMessagePress}>
+            <Text style={styles.headerButtonText}>New</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {conversations.length === 0 ? (
@@ -165,13 +169,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingTop: Platform.OS === 'ios' ? 50 : 30,
-    paddingHorizontal: 30,
+    paddingHorizontal: Platform.OS === 'ios' ? 30 : 20,
     paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#ecf0f1',
   },
   headerButton: {
-    minWidth: 60,
+    minWidth: Platform.OS === 'ios' ? 60 : 80,
+    alignItems: Platform.OS === 'ios' ? 'flex-start' : 'center',
+  },
+  backButton: {
+    alignItems: 'flex-start',
+  },
+  newButton: {
+    alignItems: 'flex-end',
   },
   headerButtonText: {
     color: '#7f8c8d',
@@ -184,6 +195,8 @@ const styles = StyleSheet.create({
     fontWeight: '100',
     color: '#2c3e50',
     letterSpacing: 2,
+    flex: 1,
+    textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,
