@@ -10,7 +10,7 @@ const verifyToken = require("../verify");
 // Configure multer
 const storage = multer.diskStorage({
     destination: async (req, file, cb) => {
-        const uploadPath = 'uploads/products/';
+        const uploadPath = '/mnt/disks/uploads/products/';
         await fs.mkdir(uploadPath, { recursive: true });
         cb(null, uploadPath);
     },

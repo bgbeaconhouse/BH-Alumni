@@ -13,7 +13,7 @@ const sharp = require('sharp'); // Import sharp for image processing
 module.exports = (wss, connectedClients, app) => { // <-- Added 'app' parameter to attach static middleware
 
     // Define upload directories
-    const UPLOAD_DIR = 'uploads/';
+   const UPLOAD_DIR = '/mnt/disks/uploads/';
     const OPTIMIZED_IMAGES_DIR = path.join(UPLOAD_DIR, 'optimized/');
     const ORIGINAL_IMAGES_DIR = path.join(UPLOAD_DIR, 'originals/'); // Optional: to keep original files
 
@@ -80,7 +80,7 @@ const compressVideo = (inputPath, outputPath) => {
     // However, for demonstration, we'll add it here.
     // Make sure 'app' (the express app instance) is passed to this module.
     if (app) {
-        app.use('/uploads', express.static(UPLOAD_DIR, {
+        app.use('/uploads', express.static('/mnt/disks/uploads', {
             maxAge: '1h', // Cache static files for 1 hour
             immutable: true, // Indicates that the file will not change
             setHeaders: (res, path, stat) => {

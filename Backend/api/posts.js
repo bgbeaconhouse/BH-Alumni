@@ -9,7 +9,7 @@ const fs = require('fs').promises;
 // Configure Multer for disk storage
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        const uploadPath = 'uploads/';
+       const uploadPath = '/mnt/disks/uploads/';
         // Create the directory if it doesn't exist
         fs.mkdir(uploadPath, { recursive: true }).then(() => {
             cb(null, uploadPath);
@@ -326,7 +326,7 @@ router.delete("/:postId", verifyToken, async (req, res, next) => {
         }
 
         // 4. Delete associated media files from the 'uploads' directory
-        const uploadDir = path.join(__dirname, '..', 'uploads'); // Assuming 'uploads' is in the parent directory of 'routes'
+       const uploadDir = '/mnt/disks/uploads'; // Assuming 'uploads' is in the parent directory of 'routes'
         if (post.imageAttachments) {
             for (const attachment of post.imageAttachments) {
                 const filePath = path.join(uploadDir, attachment.url);
