@@ -17,7 +17,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.beaconhouse.alumni",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+         "NSCameraUsageDescription": "This app uses the camera to let you take photos to share with fellow alumni in conversations.",
+        "NSPhotoLibraryUsageDescription": "This app accesses your photo library to let you share photos with fellow alumni in conversations.",
+        "NSMicrophoneUsageDescription": "This app uses the microphone to record videos that you can share with fellow alumni."
       }
     },
     "android": {
