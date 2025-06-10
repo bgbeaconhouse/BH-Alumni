@@ -12,7 +12,13 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "ios": {
+        "buildConfiguration": "Release",
+        "env": {
+          "EXPO_USE_HERMES": "false"
+        }
+      }
     },
     "production-apk": {
       "android": {
