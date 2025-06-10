@@ -396,7 +396,7 @@ const handleSendMedia = async (media, retryCount = 0) => {
             if (token && userId) {
                 try {
                     // Ensure the WebSocket URL is correct for your backend setup
-                    websocket.current = new WebSocket(`ws://192.168.0.34:3000/?token=${token}`);
+                    websocket.current = new WebSocket(`wss://bh-alumni-social-media-app.onrender.com/?token=${token}`);
 
                     websocket.current.onopen = () => {
                         console.log("WebSocket connected");
@@ -525,114 +525,118 @@ const handleSendMedia = async (media, retryCount = 0) => {
     }
 
     return (
-        <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-        >
-            <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-            
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity style={styles.headerButton} onPress={() => router.push('/messaging')}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+        
+        {/* Header */}
+        <View style={styles.header}>
+            <View style={styles.leftButtonContainer}>
+                <TouchableOpacity style={styles.backButton} onPress={() => router.push('/messaging')}>
                     <Text style={styles.headerButtonText}>← Messages</Text>
                 </TouchableOpacity>
+            </View>
+            <View style={styles.spacer} />
+            <View style={styles.rightTitleContainer}>
                 <Text style={styles.headerTitle}>Conversation</Text>
-                <View style={styles.headerButton} />
             </View>
+        </View>
 
-            {/* Messages List */}
-            <FlatList
-                ref={flatListRef}
-                data={messages}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={renderMessageItem}
-                contentContainerStyle={styles.messagesContainer}
-                style={styles.messagesList}
-                initialNumToRender={10}
-                maxToRenderPerBatch={5}
-                windowSize={21}
-                removeClippedSubviews={true}
-                showsVerticalScrollIndicator={false}
-            />
+        {/* Messages List */}
+        <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={renderMessageItem}
+            contentContainerStyle={styles.messagesContainer}
+            style={styles.messagesList}
+            initialNumToRender={10}
+            maxToRenderPerBatch={5}
+            windowSize={21}
+            removeClippedSubviews={true}
+            showsVerticalScrollIndicator={false}
+        />
 
-            {/* Input Container */}
-            <View style={styles.inputContainer}>
-                <TouchableOpacity 
-                    onPress={pickMedia} 
-                    style={[styles.mediaButton, isUploading && styles.mediaButtonDisabled]}
-                    disabled={isUploading}
-                >
-                    <Text style={[styles.mediaButtonText, isUploading && styles.mediaButtonTextDisabled]}>
-                        {isUploading ? '...' : '+'}
-                    </Text>
-                </TouchableOpacity>
-                <TextInput
-                    style={styles.input}
-                    placeholder="Type a message..."
-                    placeholderTextColor="#bdc3c7"
-                    value={newMessage}
-                    onChangeText={setNewMessage}
-                    onSubmitEditing={sendMessage}
-                    multiline
-                />
-                <TouchableOpacity 
-                    style={[styles.sendButton, !newMessage.trim() && styles.sendButtonDisabled]} 
-                    onPress={sendMessage}
-                    disabled={!newMessage.trim()}
-                >
-                    <Text style={[styles.sendButtonText, !newMessage.trim() && styles.sendButtonTextDisabled]}>
-                        Send
-                    </Text>
-                </TouchableOpacity>
-            </View>
-
-            {/* Image Modal */}
-            <Modal
-                animationType="fade"
-                transparent={true}
-                visible={modalVisible}
-                onRequestClose={() => {
-                    setModalVisible(false);
-                    setSelectedImage(null);
-                }}
+        {/* Input Container */}
+        <View style={styles.inputContainer}>
+            <TouchableOpacity 
+                onPress={pickMedia} 
+                style={[styles.mediaButton, isUploading && styles.mediaButtonDisabled]}
+                disabled={isUploading}
             >
-                <View style={styles.modalContainer}>
-                    <TouchableOpacity 
-                        style={styles.modalBackdrop}
-                        onPress={() => {
-                            setModalVisible(false);
-                            setSelectedImage(null);
-                        }}
+                <Text style={[styles.mediaButtonText, isUploading && styles.mediaButtonTextDisabled]}>
+                    {isUploading ? '...' : '+'}
+                </Text>
+            </TouchableOpacity>
+            <TextInput
+                style={styles.input}
+                placeholder="Type a message..."
+                placeholderTextColor="#bdc3c7"
+                value={newMessage}
+                onChangeText={setNewMessage}
+                onSubmitEditing={sendMessage}
+                multiline
+            />
+            <TouchableOpacity 
+                style={[styles.sendButton, !newMessage.trim() && styles.sendButtonDisabled]} 
+                onPress={sendMessage}
+                disabled={!newMessage.trim()}
+            >
+                <Text style={[styles.sendButtonText, !newMessage.trim() && styles.sendButtonTextDisabled]}>
+                    Send
+                </Text>
+            </TouchableOpacity>
+        </View>
+
+        {/* Image Modal */}
+        <Modal
+            animationType="fade"
+            transparent={true}
+            visible={modalVisible}
+            onRequestClose={() => {
+                setModalVisible(false);
+                setSelectedImage(null);
+            }}
+        >
+            <View style={styles.modalContainer}>
+                <TouchableOpacity 
+                    style={styles.modalBackdrop}
+                    onPress={() => {
+                        setModalVisible(false);
+                        setSelectedImage(null);
+                    }}
+                >
+                    <ScrollView
+                        style={styles.modalScrollView}
+                        maximumZoomScale={3}
+                        minimumZoomScale={1}
+                        centerContent={true}
+                        contentContainerStyle={styles.modalScrollContent}
                     >
-                        <ScrollView
-                            style={styles.modalScrollView}
-                            maximumZoomScale={3}
-                            minimumZoomScale={1}
-                            centerContent={true}
-                            contentContainerStyle={styles.modalScrollContent}
-                        >
-                            {selectedImage && (
-                                <Image
-                                    source={{ uri: selectedImage }}
-                                    style={styles.modalImage}
-                                    resizeMode="contain"
-                                />
-                            )}
-                        </ScrollView>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                        style={styles.closeButton} 
-                        onPress={() => {
-                            setModalVisible(false);
-                            setSelectedImage(null);
-                        }}
-                    >
-                        <Text style={styles.closeButtonText}>✕</Text>
-                    </TouchableOpacity>
-                </View>
-            </Modal>
-        </KeyboardAvoidingView>
+                        {selectedImage && (
+                            <Image
+                                source={{ uri: selectedImage }}
+                                style={styles.modalImage}
+                                resizeMode="contain"
+                            />
+                        )}
+                    </ScrollView>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                    style={styles.closeButton} 
+                    onPress={() => {
+                        setModalVisible(false);
+                        setSelectedImage(null);
+                    }}
+                >
+                    <Text style={styles.closeButtonText}>✕</Text>
+                </TouchableOpacity>
+            </View>
+        </Modal>
+    </KeyboardAvoidingView>
     );
 };
 
@@ -648,14 +652,29 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingTop: Platform.OS === 'ios' ? 50 : 30,
-        paddingHorizontal: 30,
+        paddingHorizontal: Platform.OS === 'ios' ? 30 : 20,
         paddingBottom: 20,
         borderBottomWidth: 1,
         borderBottomColor: '#ecf0f1',
         backgroundColor: '#ffffff',
     },
+    leftButtonContainer: {
+        alignItems: 'flex-start',
+    },
+    backButton: {
+        paddingVertical: 8,
+    },
+    spacer: {
+        flex: 1,
+    },
+    rightTitleContainer: {
+        alignItems: 'flex-end',
+        paddingRight: Platform.OS === 'ios' ? 0 : 10,
+    },
     headerButton: {
-        minWidth: 60,
+        minWidth: Platform.OS === 'ios' ? 60 : 50,
+        maxWidth: Platform.OS === 'ios' ? 80 : 60,
+        alignItems: Platform.OS === 'ios' ? 'flex-start' : 'center',
     },
     headerButtonText: {
         color: '#7f8c8d',
@@ -668,6 +687,7 @@ const styles = StyleSheet.create({
         fontWeight: '100',
         color: '#2c3e50',
         letterSpacing: 2,
+        paddingRight: 10,
     },
     loadingContainer: {
         flex: 1,

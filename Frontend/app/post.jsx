@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, FlatList, ActivityIndicator, Image, TextInput, Modal, ScrollView, Dimensions, Alert, StatusBar } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { Link, useRouter } from 'expo-router';
@@ -7,7 +7,72 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
-const PostVideo = ({ videoUrl, thumbnailUrl }) => {
+// Optimized Image Component with Progressive Loading
+const OptimizedImage = React.memo(({ imageUrl, style, onPress, showMultipleIndicator, count }) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  
+  const getImageUrl = () => {
+    const baseUrl = 'https://bh-alumni-social-media-app.onrender.com/uploads/';
+    
+    // Handle both new format (object) and old format (string)
+    if (typeof imageUrl === 'object') {
+      // Try optimized version first, fallback to original
+      if (imageUrl.optimizedUrl) {
+        return `${baseUrl}${imageUrl.optimizedUrl}`;
+      }
+      return `${baseUrl}${imageUrl.url}`;
+    }
+    // Old format - direct string
+    return `${baseUrl}${imageUrl}`;
+  };
+
+  const getThumbnailUrl = () => {
+    const baseUrl = 'https://bh-alumni-social-media-app.onrender.com/uploads/';
+    
+    // Handle both new format (object) and old format (string)
+    if (typeof imageUrl === 'object' && imageUrl.thumbnailUrl) {
+      return `${baseUrl}${imageUrl.thumbnailUrl}`;
+    }
+    // Fallback to main image
+    return getImageUrl();
+  };
+
+  return (
+    <TouchableOpacity onPress={onPress} style={styles.imageContainer}>
+      {/* Loading indicator */}
+      {!imageLoaded && (
+        <View style={styles.imagePlaceholder}>
+          <ActivityIndicator size="small" color="#2c3e50" />
+        </View>
+      )}
+      
+      {/* Main image */}
+      <Image
+        source={{ 
+          uri: getImageUrl(),
+          cache: 'force-cache'
+        }}
+        style={[styles.postImage, { opacity: imageLoaded ? 1 : 0 }]}
+        resizeMode="cover"
+        onLoad={() => setImageLoaded(true)}
+        onError={(error) => {
+          console.log('Image load error:', error);
+          setImageLoaded(true); // Show even if error to prevent infinite loading
+        }}
+        fadeDuration={300}
+      />
+      
+      {/* Multiple images indicator */}
+      {showMultipleIndicator && count > 1 && (
+        <View style={styles.multipleImagesOverlay}>
+          <Text style={styles.multipleImagesText}>{`+${count - 1}`}</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+});
+
+const PostVideo = React.memo(({ videoUrl, thumbnailUrl }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   
@@ -70,7 +135,7 @@ const PostVideo = ({ videoUrl, thumbnailUrl }) => {
       </Modal>
     </View>
   );
-};
+});
 
 const Post = () => {
   const [posts, setPosts] = useState([]);
@@ -86,9 +151,15 @@ const Post = () => {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [isDeletingComment, setIsDeletingComment] = useState({});
   const [isDeletingPost, setIsDeletingPost] = useState({});
-  const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
   const [modalImages, setModalImages] = useState([]);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  
+  const router = useRouter();
 
   // Migration function to move tokens from AsyncStorage to SecureStore
   const migrateFromAsyncStorage = async () => {
@@ -142,41 +213,56 @@ const Post = () => {
     }
   }, []);
 
-  const fetchPosts = useCallback(async () => {
-    setRefreshing(true);
+  const fetchPosts = useCallback(async (page = 1, isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+      setCurrentPage(1);
+      setHasMore(true);
+    } else {
+      setLoadingMore(true);
+    }
+
     try {
-      const response = await fetch('https://bh-alumni-social-media-app.onrender.com/api/posts');
+      const response = await fetch(`https://bh-alumni-social-media-app.onrender.com/api/posts?page=${page}&limit=10`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
+      
       const data = await response.json();
-      setPosts(data);
+      const newPosts = data.posts || data; // Handle both new and old API responses
+      
+      if (isRefresh) {
+        setPosts(newPosts);
+      } else {
+        setPosts(prevPosts => [...prevPosts, ...newPosts]);
+      }
+      
+      // Handle pagination info
+      if (data.pagination) {
+        setHasMore(data.pagination.hasMore);
+      } else {
+        setHasMore(newPosts.length === 10); // Fallback logic
+      }
+      
       setError(null);
       const token = await getToken();
 
-      data.forEach(async (post) => {
+      // Process additional data for each post
+      newPosts.forEach(async (post) => {
         try {
-          // Fetch comments
-          const commentsResponse = await fetch(`https://bh-alumni-social-media-app.onrender.com/api/posts/${post.id}/comments`);
-          if (!commentsResponse.ok) {
-            console.error(`Failed to fetch comments for post ${post.id}`);
-          } else {
-            const commentsData = await commentsResponse.json();
-            setComments((prevComments) => ({
-              ...prevComments,
-              [post.id]: commentsData,
+          // Set initial likes count from included data
+          if (post.likes) {
+            setLikes((prevLikes) => ({
+              ...prevLikes,
+              [post.id]: post.likes.length,
             }));
           }
 
-          // Fetch likes count
-          const likesResponse = await fetch(`https://bh-alumni-social-media-app.onrender.com/api/posts/${post.id}/likes`);
-          if (!likesResponse.ok) {
-            console.error(`Failed to fetch likes for post ${post.id}`);
-          } else {
-            const likesData = await likesResponse.json();
-            setLikes((prevLikes) => ({
-              ...prevLikes,
-              [post.id]: likesData.length,
+          // Set initial comments from included data
+          if (post.comments) {
+            setComments((prevComments) => ({
+              ...prevComments,
+              [post.id]: post.comments,
             }));
           }
 
@@ -193,8 +279,6 @@ const Post = () => {
                 ...prevUserLiked,
                 [post.id]: userLikeData.liked,
               }));
-            } else {
-              console.error(`Failed to fetch user like status for post ${post.id}`);
             }
           }
         } catch (err) {
@@ -207,13 +291,22 @@ const Post = () => {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setLoadingMore(false);
     }
   }, []);
 
+  const loadMorePosts = useCallback(() => {
+    if (!loadingMore && hasMore) {
+      const nextPage = currentPage + 1;
+      setCurrentPage(nextPage);
+      fetchPosts(nextPage, false);
+    }
+  }, [currentPage, hasMore, loadingMore, fetchPosts]);
+
   useEffect(() => {
-    fetchPosts();
+    fetchPosts(1, true);
     getUserId();
-  }, [fetchPosts, getUserId]);
+  }, [getUserId]);
 
   const handleLike = async (postId) => {
     const token = await getToken();
@@ -401,7 +494,18 @@ const Post = () => {
   };
 
   const openImageModal = (images) => {
-    setModalImages(images.map(img => ({ uri: `https://bh-alumni-social-media-app.onrender.com/uploads/${img.url}` })));
+    const modalImageUrls = images.map(img => {
+      const baseUrl = 'https://bh-alumni-social-media-app.onrender.com/uploads/';
+      // Handle both new format (object) and old format (string)
+      let imageUrl;
+      if (typeof img === 'object') {
+        imageUrl = img.optimizedUrl ? `${baseUrl}${img.optimizedUrl}` : `${baseUrl}${img.url}`;
+      } else {
+        imageUrl = `${baseUrl}${img}`;
+      }
+      return { uri: imageUrl };
+    });
+    setModalImages(modalImageUrls);
     setModalVisible(true);
   };
 
@@ -410,24 +514,8 @@ const Post = () => {
     setModalImages([]);
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2c3e50" />
-        <Text style={styles.loadingText}>Loading posts...</Text>
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.errorText}>Error loading posts</Text>
-      </View>
-    );
-  }
-
-  const renderItem = ({ item }) => {
+  // Memoized render item for better performance
+  const renderItem = useCallback(({ item, index }) => {
     const imageAttachments = item.imageAttachments || [];
     const videoAttachments = item.videoAttachments || [];
     const postComments = comments[item.id] || [];
@@ -463,18 +551,13 @@ const Post = () => {
         {item.content && <Text style={styles.postContent}>{item.content}</Text>}
         
         {imageAttachments.length > 0 && (
-          <TouchableOpacity onPress={() => openImageModal(imageAttachments)}>
-            <Image
-              source={{ uri: `https://bh-alumni-social-media-app.onrender.com/uploads/${imageAttachments[0].url}` }}
-              style={styles.postImage}
-              resizeMode="cover"
-            />
-            {imageAttachments.length > 1 && (
-              <View style={styles.multipleImagesOverlay}>
-                <Text style={styles.multipleImagesText}>{`+${imageAttachments.length - 1}`}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          <OptimizedImage
+            imageUrl={imageAttachments[0].url || imageAttachments[0]}
+            style={styles.postImage}
+            onPress={() => openImageModal(imageAttachments)}
+            showMultipleIndicator={true}
+            count={imageAttachments.length}
+          />
         )}
         
         {videoAttachments.length > 0 && (
@@ -561,12 +644,50 @@ const Post = () => {
         )}
       </View>
     );
-  };
+  }, [comments, likes, userLikedPosts, newCommentText, isSubmittingComment, isDeletingPost, isDeletingComment, showComments, currentUserId, handleDeletePost, handleLike, handlePostComment, handleDeleteComment, openImageModal]);
+
+  // Memoized item layout for better performance
+  const getItemLayout = useCallback((data, index) => ({
+    length: 400, // Estimated item height
+    offset: 400 * index,
+    index,
+  }), []);
 
   const onRefresh = () => {
-    fetchPosts();
+    fetchPosts(1, true);
     getUserId();
   };
+
+  // Render footer for loading more
+  const renderFooter = () => {
+    if (!loadingMore) return null;
+    return (
+      <View style={styles.loadingMore}>
+        <ActivityIndicator size="small" color="#2c3e50" />
+        <Text style={styles.loadingMoreText}>Loading more posts...</Text>
+      </View>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2c3e50" />
+        <Text style={styles.loadingText}>Loading posts...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.errorText}>Error loading posts</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => fetchPosts(1, true)}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -593,12 +714,25 @@ const Post = () => {
         onRefresh={onRefresh}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
+        // Performance optimizations
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={5}
+        windowSize={10}
+        initialNumToRender={3}
+        updateCellsBatchingPeriod={100}
+        getItemLayout={getItemLayout}
+        // Infinite scroll
+        onEndReached={loadMorePosts}
+        onEndReachedThreshold={0.5}
         ListFooterComponent={() => (
-          <View style={styles.guidelinesContainer}>
-            <Text style={styles.guidelinesHeader}>Community Guidelines</Text>
-            <Text style={styles.guidelineItem}>• Alumni community space</Text>
-            <Text style={styles.guidelineItem}>• Speak freely with respect</Text>
-            <Text style={styles.guidelineItem}>• Contact bgbeaconhouse@gmail.com for concerns</Text>
+          <View>
+            {renderFooter()}
+            <View style={styles.guidelinesContainer}>
+              <Text style={styles.guidelinesHeader}>Community Guidelines</Text>
+              <Text style={styles.guidelineItem}>• Alumni community space</Text>
+              <Text style={styles.guidelineItem}>• Speak freely with respect</Text>
+              <Text style={styles.guidelineItem}>• Contact bgbeaconhouse@gmail.com for concerns</Text>
+            </View>
           </View>
         )}
       />
@@ -620,18 +754,19 @@ const Post = () => {
             style={styles.modalScrollView}
             horizontal
             pagingEnabled
+            showsHorizontalScrollIndicator={false}
           >
             {modalImages.map((image, index) => (
               <View key={index} style={styles.modalPage}>
                 <Image
                   source={{ 
                     uri: image.uri,
-                    cache: 'reload'
+                    cache: 'force-cache'
                   }}
                   style={styles.modalImage}
                   resizeMode="contain"
                   resizeMethod="resize"
-                  fadeDuration={0}
+                  fadeDuration={200}
                 />
               </View>
             ))}
@@ -645,7 +780,7 @@ const Post = () => {
   );
 };
 
-export default Post
+export default Post;
 
 const styles = StyleSheet.create({
   container: {
@@ -697,6 +832,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#e74c3c',
     fontWeight: '300',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#2c3e50',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '300',
+  },
+  loadingMore: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  loadingMoreText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#7f8c8d',
+    fontWeight: '300',
   },
   postItem: {
     backgroundColor: '#ffffff',
@@ -735,11 +895,37 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     fontWeight: '300',
   },
-  postImage: {
+  // Optimized image styles
+  imageContainer: {
     width: '100%',
-      height: 400,
+    height: 400,
     borderRadius: 8,
     marginBottom: 16,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  postImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+  },
+  thumbnailImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+  },
+  imagePlaceholder: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(248, 249, 250, 0.8)',
+    zIndex: 2,
   },
   videoPlaceholder: {
     backgroundColor: '#f8f9fa',
@@ -788,6 +974,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 4,
+    zIndex: 3,
   },
   multipleImagesText: {
     color: 'white',

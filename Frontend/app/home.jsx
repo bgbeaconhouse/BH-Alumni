@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, TouchableOpacity, Alert, StatusBar } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, StatusBar, Platform } from 'react-native';
 import React from 'react';
 import { Link, useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
@@ -77,11 +77,13 @@ const Home = () => {
             </Link>
           </TouchableOpacity>
 
+          {/* Shop button commented out
           <TouchableOpacity style={styles.menuButton}>
             <Link href="/shop" style={styles.menuLink}>
               <Text style={styles.menuText}>Shop</Text>
             </Link>
           </TouchableOpacity>
+          */}
         </View>
       </View>
 
@@ -101,7 +103,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   header: {
-    paddingTop: 50,
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
     paddingHorizontal: 30,
     paddingBottom: 20,
     alignItems: 'flex-end',
@@ -123,7 +125,7 @@ const styles = StyleSheet.create({
   },
   brandSection: {
     alignItems: 'center',
-    marginBottom: 60,
+    marginBottom: 80,
   },
   logo: {
     fontSize: 48,
@@ -152,9 +154,9 @@ const styles = StyleSheet.create({
   },
   menuButton: {
     backgroundColor: 'transparent',
-    paddingVertical: 18,
+    paddingVertical: 20,
     borderRadius: 8,
-    marginBottom: 16,
+    marginBottom: 20,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#ecf0f1',

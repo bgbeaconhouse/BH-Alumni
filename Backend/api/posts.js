@@ -5,6 +5,7 @@ const prisma = require("../prisma");
 const verifyToken = require("../verify");
 const path = require('path');
 const fs = require('fs').promises;
+const sharp = require('sharp'); // Add Sharp for image optimization
 
 // Configure Multer for disk storage
 const storage = multer.diskStorage({
@@ -12,6 +13,9 @@ const storage = multer.diskStorage({
        const uploadPath = '/mnt/disks/uploads/';
         // Create the directory if it doesn't exist
         fs.mkdir(uploadPath, { recursive: true }).then(() => {
+            // Also create optimized directory for future use
+            return fs.mkdir('/mnt/disks/uploads/optimized/', { recursive: true });
+        }).then(() => {
             cb(null, uploadPath);
         }).catch(err => cb(err));
     },
@@ -35,8 +39,8 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
     storage: storage,
     fileFilter: fileFilter,
-    limits: { fileSize: 100 * 1024 * 1024 } // Optional: limit file size to 10MB
-}).array('media', 10); // 'media' is the field name for files in the form-data
+    limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
+}).array('media', 10);
 
 router.post("/", verifyToken, upload, async (req, res, next) => {
     try {
@@ -64,20 +68,68 @@ router.post("/", verifyToken, upload, async (req, res, next) => {
 
             for (const file of files) {
                 const fileExtension = path.extname(file.originalname).toLowerCase();
+                
                 if (['.jpg', '.jpeg', '.png', '.gif'].includes(fileExtension)) {
-                    imageAttachments.push({ postId: post.id, url: file.filename });
+                    // Create optimized versions but don't save to database yet
+                    try {
+                        const optimizedFilename = `optimized-${file.filename}`;
+                        const optimizedFilePath = path.join('/mnt/disks/uploads/optimized/', optimizedFilename);
+                        
+                        // Create optimized image with Sharp
+                        await sharp(file.path)
+                            .resize({ 
+                                width: 800, 
+                                height: 800, 
+                                fit: 'inside',
+                                withoutEnlargement: true 
+                            })
+                            .jpeg({ 
+                                quality: 80,
+                                progressive: true
+                            })
+                            .toFile(optimizedFilePath);
+
+                        // Create thumbnail (200x200) for faster loading
+                        const thumbnailFilename = `thumb-${file.filename}`;
+                        const thumbnailFilePath = path.join('/mnt/disks/uploads/optimized/', thumbnailFilename);
+                        
+                        await sharp(file.path)
+                            .resize(200, 200, { 
+                                fit: 'cover',
+                                position: 'center' 
+                            })
+                            .jpeg({ 
+                                quality: 70,
+                                progressive: true
+                            })
+                            .toFile(thumbnailFilePath);
+
+                        console.log(`Created optimized versions for ${file.filename}`);
+                    } catch (optimizationError) {
+                        console.error("Image optimization failed:", optimizationError);
+                    }
+
+                    // Save to database with current schema (only original URL)
+                    imageAttachments.push({ 
+                        postId: post.id, 
+                        url: file.filename
+                    });
                 } else if (['.mp4', '.mpeg', '.mov'].includes(fileExtension)) {
                     videoAttachments.push({ postId: post.id, url: file.filename });
                 }
             }
 
-            await prisma.postImageAttachment.createMany({
-                data: imageAttachments,
-            });
+            if (imageAttachments.length > 0) {
+                await prisma.postImageAttachment.createMany({
+                    data: imageAttachments,
+                });
+            }
 
-            await prisma.postVideoAttachment.createMany({
-                data: videoAttachments,
-            });
+            if (videoAttachments.length > 0) {
+                await prisma.postVideoAttachment.createMany({
+                    data: videoAttachments,
+                });
+            }
         }
 
         const populatedPost = await prisma.post.findUnique({
@@ -97,55 +149,108 @@ router.post("/", verifyToken, upload, async (req, res, next) => {
     }
 });
 
-// GET request to view all posts
+// GET request to view all posts with pagination
 router.get("/", async (req, res, next) => {
     try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
         const posts = await prisma.post.findMany({
+            skip,
+            take: limit,
             include: {
-                author: true,
+                author: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        username: true,
+                    },
+                },
                 likes: true,
                 comments: {
+                    take: 3, // Only load first 3 comments initially
                     include: {
-                        user: true,
+                        user: {
+                            select: {
+                                id: true,
+                                username: true,
+                                firstName: true,
+                                lastName: true,
+                            },
+                        },
+                    },
+                    orderBy: {
+                        createdAt: 'desc',
                     },
                 },
                 imageAttachments: true,
                 videoAttachments: true,
             },
             orderBy: {
-                createdAt: 'desc', // Order by most recent first
+                createdAt: 'desc',
             },
         });
-        res.status(200).json(posts);
+
+        // Get total count for pagination info
+        const totalPosts = await prisma.post.count();
+        const hasMore = skip + posts.length < totalPosts;
+
+        res.status(200).json({
+            posts,
+            pagination: {
+                currentPage: page,
+                totalPages: Math.ceil(totalPosts / limit),
+                hasMore,
+                totalPosts
+            }
+        });
     } catch (error) {
         console.error("Error fetching all posts:", error);
         next(error);
     }
 });
 
-
-// GET comments for a specific post
+// GET comments for a specific post with pagination
 router.get("/:postId/comments", async (req, res, next) => {
-   
     const { postId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
     try {
         const comments = await prisma.comment.findMany({
             where: { postId: parseInt(postId) },
+            skip,
+            take: limit,
             include: {
-    user: {
-        select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-        },
-    },
-},
+                user: {
+                    select: {
+                        id: true,
+                        username: true,
+                        firstName: true,
+                        lastName: true,
+                    },
+                },
+            },
             orderBy: {
                 createdAt: 'desc',
             },
         });
-        res.status(200).json(comments);
+
+        const totalComments = await prisma.comment.count({
+            where: { postId: parseInt(postId) }
+        });
+
+        res.status(200).json({
+            comments,
+            pagination: {
+                currentPage: page,
+                hasMore: skip + comments.length < totalComments,
+                totalComments
+            }
+        });
     } catch (error) {
         console.error("Error fetching comments:", error);
         next(error);
@@ -154,7 +259,7 @@ router.get("/:postId/comments", async (req, res, next) => {
 
 // POST a new comment to a post
 router.post("/:postId/comments", verifyToken, async (req, res, next) => {
-      console.log("Request Body (comment):", req.body); 
+    console.log("Request Body (comment):", req.body); 
     const { postId } = req.params;
     const { content } = req.body;
     const userId = req.userId;
@@ -171,15 +276,15 @@ router.post("/:postId/comments", verifyToken, async (req, res, next) => {
                 userId: userId,
             },
             include: {
-    user: {
-        select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-        },
-    },
-},
+                user: {
+                    select: {
+                        id: true,
+                        username: true,
+                        firstName: true,
+                        lastName: true,
+                    },
+                },
+            },
         });
         res.status(201).json(newComment);
     } catch (error) {
@@ -213,7 +318,7 @@ router.get("/:postId/userLike", verifyToken, async (req, res, next) => {
                 userId: userId,
             },
         });
-        res.status(200).json({ liked: !!like }); // Return true if found, false otherwise
+        res.status(200).json({ liked: !!like });
     } catch (error) {
         console.error("Error fetching user like status:", error);
         next(error);
@@ -226,7 +331,6 @@ router.post("/:postId/like", verifyToken, async (req, res, next) => {
     const userId = req.userId;
 
     try {
-        // Check if the user has already liked the post
         const existingLike = await prisma.like.findFirst({
             where: {
                 postId: parseInt(postId),
@@ -235,26 +339,22 @@ router.post("/:postId/like", verifyToken, async (req, res, next) => {
         });
 
         if (existingLike) {
-            // User has already liked the post, so unlike it (delete the like)
             await prisma.like.delete({
                 where: {
                     id: existingLike.id,
                 },
             });
-            // Get the updated likes count
             const updatedLikes = await prisma.like.findMany({
                 where: { postId: parseInt(postId) },
             });
             res.status(200).json({ message: "Post unliked", liked: false, likes: updatedLikes });
         } else {
-            // User has not liked the post, so like it (create a new like)
             await prisma.like.create({
                 data: {
                     postId: parseInt(postId),
                     userId: userId,
                 },
             });
-            // Get the updated likes count
             const updatedLikes = await prisma.like.findMany({
                 where: { postId: parseInt(postId) },
             });
@@ -264,8 +364,6 @@ router.post("/:postId/like", verifyToken, async (req, res, next) => {
         console.error("Error liking/unliking post:", error);
         next(error);
     }
-
-    
 });
 
 // DELETE endpoint to delete a comment
@@ -274,7 +372,6 @@ router.delete("/comments/:commentId", verifyToken, async (req, res, next) => {
     const userId = req.userId;
 
     try {
-        // 1. Check if the comment exists
         const comment = await prisma.comment.findUnique({
             where: { id: parseInt(commentId) },
         });
@@ -283,12 +380,10 @@ router.delete("/comments/:commentId", verifyToken, async (req, res, next) => {
             return res.status(404).json({ error: "Comment not found." });
         }
 
-        // 2. Check if the user is the author of the comment
         if (comment.userId !== userId) {
             return res.status(403).json({ error: "You are not authorized to delete this comment." });
         }
 
-        // 3. Delete the comment
         await prisma.comment.delete({
             where: { id: parseInt(commentId) },
         });
@@ -300,13 +395,12 @@ router.delete("/comments/:commentId", verifyToken, async (req, res, next) => {
     }
 });
 
-// NEW: DELETE endpoint to delete a post
+// DELETE endpoint to delete a post
 router.delete("/:postId", verifyToken, async (req, res, next) => {
     const { postId } = req.params;
-    const userId = req.userId; // Get userId from the verifyToken middleware
+    const userId = req.userId;
 
     try {
-        // 1. Find the post and include its attachments
         const post = await prisma.post.findUnique({
             where: { id: parseInt(postId) },
             include: {
@@ -315,35 +409,42 @@ router.delete("/:postId", verifyToken, async (req, res, next) => {
             },
         });
 
-        // 2. Check if the post exists
         if (!post) {
             return res.status(404).json({ error: "Post not found." });
         }
 
-        // 3. Check if the authenticated user is the author of the post
         if (post.authorId !== userId) {
             return res.status(403).json({ error: "You are not authorized to delete this post." });
         }
 
-        // 4. Delete associated media files from the 'uploads' directory
-       const uploadDir = '/mnt/disks/uploads'; // Assuming 'uploads' is in the parent directory of 'routes'
+        // Delete associated media files (including optimized versions)
+        const uploadDir = '/mnt/disks/uploads';
+        const optimizedDir = '/mnt/disks/uploads/optimized';
+        
         if (post.imageAttachments) {
             for (const attachment of post.imageAttachments) {
-                const filePath = path.join(uploadDir, attachment.url);
-                try {
-                    await fs.unlink(filePath); // Delete the file
-                    console.log(`Deleted file: ${filePath}`);
-                } catch (fileError) {
-                    // Log the error but don't stop the deletion process for other files/post
-                    console.error(`Error deleting file ${filePath}:`, fileError);
+                const filesToDelete = [
+                    path.join(uploadDir, attachment.url), // Original
+                    path.join(optimizedDir, `optimized-${attachment.url}`), // Optimized
+                    path.join(optimizedDir, `thumb-${attachment.url}`) // Thumbnail
+                ];
+
+                for (const filePath of filesToDelete) {
+                    try {
+                        await fs.unlink(filePath);
+                        console.log(`Deleted file: ${filePath}`);
+                    } catch (fileError) {
+                        console.error(`Error deleting file ${filePath}:`, fileError);
+                    }
                 }
             }
         }
+
         if (post.videoAttachments) {
             for (const attachment of post.videoAttachments) {
                 const filePath = path.join(uploadDir, attachment.url);
                 try {
-                    await fs.unlink(filePath); // Delete the file
+                    await fs.unlink(filePath);
                     console.log(`Deleted file: ${filePath}`);
                 } catch (fileError) {
                     console.error(`Error deleting file ${filePath}:`, fileError);
@@ -351,15 +452,6 @@ router.delete("/:postId", verifyToken, async (req, res, next) => {
             }
         }
 
-        // 5. Delete the post (Prisma will handle cascading deletes for attachments, likes, and comments if configured)
-        // Ensure your Prisma schema has `onDelete: Cascade` for relationships if you want Prisma to handle this automatically.
-        // For example:
-        // model PostImageAttachment {
-        //   id     Int    @id @default(autoincrement())
-        //   url    String
-        //   postId Int
-        //   post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
-        // }
         await prisma.post.delete({
             where: { id: parseInt(postId) },
         });
@@ -368,7 +460,8 @@ router.delete("/:postId", verifyToken, async (req, res, next) => {
 
     } catch (error) {
         console.error("Error deleting post:", error);
-        next(error); // Pass error to the next middleware (error handler)
+        next(error);
     }
 });
+
 module.exports = router;
