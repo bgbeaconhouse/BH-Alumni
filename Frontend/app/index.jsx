@@ -6,7 +6,7 @@ const Home = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      
+             
       {/* Main Content - Centered */}
       <View style={styles.content}>
         <View style={styles.brandSection}>
@@ -16,20 +16,20 @@ const Home = () => {
         </View>
 
         <View style={styles.actionButtons}>
-          <TouchableOpacity style={styles.loginButton}>
-            <Link href="/login" style={styles.loginText}>
-              Sign In
-            </Link>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.registerButton}>
-            <Link href="/register" style={styles.registerText}>
-              Join Network
-            </Link>
-          </TouchableOpacity>
+          <Link href="/login" asChild>
+            <TouchableOpacity style={styles.loginButton}>
+              <Text style={styles.loginText}>Sign In</Text>
+            </TouchableOpacity>
+          </Link>
+                     
+          <Link href="/register" asChild>
+            <TouchableOpacity style={styles.registerButton}>
+              <Text style={styles.registerText}>Join Network</Text>
+            </TouchableOpacity>
+          </Link>
         </View>
       </View>
-      
+             
       {/* Simple Footer */}
       <View style={styles.footer}>
         <Text style={styles.footerText}>Beacon House • Est. 1974</Text>
