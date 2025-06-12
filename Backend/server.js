@@ -300,6 +300,8 @@ app.post("/api/admin/approve/:userId", verifyToken, async (req, res, next) => {
     }
 });
 
+
+
 // Pass wss, connectedClients, AND the 'app' instance to the conversations router
 app.use("/api/conversations", require("./api/conversations")(wss, connectedClients, app)); // <-- Changed here
 

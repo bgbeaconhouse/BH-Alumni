@@ -49,4 +49,55 @@ router.get("/:id", verifyToken, async (req, res, next) => {
     }
 });
 
+router.delete("/me", verifyToken, async (req, res, next) => {
+    try {
+        const userId = req.userId; // This comes from the verifyToken middleware
+        
+        // Optional: Add password confirmation for extra security
+        const { password } = req.body;
+        
+        if (password) {
+            // Verify the user's password before deletion
+            const user = await prisma.user.findUnique({
+                where: { id: userId }
+            });
+            
+            if (!user) {
+                return res.status(404).json({ message: "User not found." });
+            }
+            
+            const bcrypt = require('bcrypt');
+            const passwordMatch = await bcrypt.compare(password, user.password);
+            
+            if (!passwordMatch) {
+                return res.status(401).json({ message: "Invalid password." });
+            }
+        }
+        
+        // Delete the user - Prisma will handle cascading deletes based on your schema
+        await prisma.user.delete({
+            where: { id: userId }
+        });
+        
+        // Remove user from WebSocket connections if they're connected
+        // You'll need to access connectedClients from your server.js
+        // For now, we'll just log this
+        console.log(`User ${userId} account deleted successfully`);
+        
+        res.status(200).json({ 
+            message: "Account deleted successfully." 
+        });
+        
+    } catch (error) {
+        console.error("Error deleting account:", error);
+        
+        // Handle specific Prisma errors
+        if (error.code === 'P2025') {
+            return res.status(404).json({ message: "User not found." });
+        }
+        
+        next(error);
+    }
+});
+
 module.exports = router;

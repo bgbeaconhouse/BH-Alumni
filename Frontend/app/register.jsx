@@ -149,7 +149,7 @@ const Register = () => {
 
             <TextInput
               style={styles.input}
-              placeholder="Phone Number"
+              placeholder="Sobriety Date"
               placeholderTextColor="#bdc3c7"
               value={formData.phoneNumber}
               onChangeText={(text) => handleChange('phoneNumber', text)}
