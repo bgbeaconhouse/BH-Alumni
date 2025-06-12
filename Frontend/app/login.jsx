@@ -1,6 +1,6 @@
-import { StyleSheet, Text, View, TouchableOpacity, TextInput, Alert, ScrollView, KeyboardAvoidingView, Platform, StatusBar } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, TextInput, Alert, ScrollView, KeyboardAvoidingView, Platform, StatusBar, Keyboard } from 'react-native';
 import { Link, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import * as SecureStore from 'expo-secure-store';
 
 const Login = () => {
@@ -11,110 +11,117 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
+  const passwordInputRef = useRef(null);
 
   const handleChange = (field, value) => {
     setFormData({ ...formData, [field]: value });
   };
 
   const handleSubmit = async () => {
-    // Basic validation
-    if (!formData.username.trim() || !formData.password.trim()) {
-      Alert.alert('Validation Error', 'Please fill in all fields');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await fetch('https://bh-alumni-social-media-app.onrender.com/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        let errorMessage = "Login Failed";
-        if (response.headers.get('content-type')?.includes('application/json')) {
-          try {
-            const errorData = await response.json();
-            errorMessage = errorData.message || errorMessage;
-          } catch (jsonError) {
-            const text = await response.text();
-            errorMessage = text || errorMessage;
-          }
-        } else {
-          const text = await response.text();
-          errorMessage = text || errorMessage;
-        }
-        throw new Error(errorMessage);
-      }
-
-      let result;
-      try {
-        result = await response.json();
-      } catch (error) {
-        console.error("Error parsing JSON:", error);
-        const text = await response.text();
-        console.error("Raw response text:", text);
-        Alert.alert(
-          "Login Error",
-          "Error parsing server response. Please check the server logs."
-        );
-        setLoading(false);
+    // Dismiss keyboard first to prevent UI issues
+    Keyboard.dismiss();
+    
+    // Add small delay to ensure keyboard is dismissed
+    setTimeout(async () => {
+      // Basic validation
+      if (!formData.username.trim() || !formData.password.trim()) {
+        Alert.alert('Validation Error', 'Please fill in all fields');
         return;
       }
 
-      console.log("Full server response:", result);
-      const tokenToStore = result.token;
+      setLoading(true);
+      try {
+        const response = await fetch('https://bh-alumni-social-media-app.onrender.com/api/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData),
+        });
 
-      if (tokenToStore) {
+        if (!response.ok) {
+          let errorMessage = "Login Failed";
+          if (response.headers.get('content-type')?.includes('application/json')) {
+            try {
+              const errorData = await response.json();
+              errorMessage = errorData.message || errorMessage;
+            } catch (jsonError) {
+              const text = await response.text();
+              errorMessage = text || errorMessage;
+            }
+          } else {
+            const text = await response.text();
+            errorMessage = text || errorMessage;
+          }
+          throw new Error(errorMessage);
+        }
+
+        let result;
         try {
-          await SecureStore.setItemAsync('authToken', tokenToStore);
-          console.log('Token stored securely:', tokenToStore);
-        } catch (secureStoreError) {
-          console.error('Error storing token in SecureStore:', secureStoreError);
+          result = await response.json();
+        } catch (error) {
+          console.error("Error parsing JSON:", error);
+          const text = await response.text();
+          console.error("Raw response text:", text);
           Alert.alert(
-            'Storage Error',
-            'Failed to securely store authentication token. Please try again.'
+            "Login Error",
+            "Error parsing server response. Please check the server logs."
           );
           setLoading(false);
           return;
         }
-      } else {
-        console.warn('Received undefined token from server:', result);
-        Alert.alert(
-          'Login Warning',
-          'Login was successful, but no token was received. Please check your backend API.',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                //  router.push('/home');
+
+        console.log("Full server response:", result);
+        const tokenToStore = result.token;
+
+        if (tokenToStore) {
+          try {
+            await SecureStore.setItemAsync('authToken', tokenToStore);
+            console.log('Token stored securely:', tokenToStore);
+          } catch (secureStoreError) {
+            console.error('Error storing token in SecureStore:', secureStoreError);
+            Alert.alert(
+              'Storage Error',
+              'Failed to securely store authentication token. Please try again.'
+            );
+            setLoading(false);
+            return;
+          }
+        } else {
+          console.warn('Received undefined token from server:', result);
+          Alert.alert(
+            'Login Warning',
+            'Login was successful, but no token was received. Please check your backend API.',
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  //  router.push('/home');
+                },
               },
+            ]
+          );
+          setLoading(false);
+          return;
+        }
+
+        Alert.alert('Login Successful', result.message || 'Welcome back!', [
+          {
+            text: 'OK',
+            onPress: () => {
+              router.push('/home');
             },
-          ]
-        );
-        setLoading(false);
-        return;
-      }
-
-      Alert.alert('Login Successful', result.message || 'Welcome back!', [
-        {
-          text: 'OK',
-          onPress: () => {
-            router.push('/home');
           },
-        },
-      ]);
+        ]);
 
-      setFormData({ username: '', password: '' });
+        setFormData({ username: '', password: '' });
 
-    } catch (error) {
-      Alert.alert('Login Failed', error.message);
-    } finally {
-      setLoading(false);
-    }
+      } catch (error) {
+        Alert.alert('Login Failed', error.message);
+      } finally {
+        setLoading(false);
+      }
+    }, 100); // Small delay to ensure keyboard dismissal
   };
 
   return (
@@ -125,7 +132,10 @@ const Login = () => {
     >
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView 
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Back Button */}
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton}>
@@ -154,12 +164,19 @@ const Login = () => {
                 onChangeText={(text) => handleChange('username', text)}
                 autoCapitalize="none"
                 autoCorrect={false}
+                returnKeyType="next"
+                onSubmitEditing={() => {
+                  // Focus password field when "next" is pressed
+                  passwordInputRef.current?.focus();
+                }}
+                blurOnSubmit={false}
               />
             </View>
 
             <View style={styles.inputContainer}>
               <View style={styles.passwordContainer}>
                 <TextInput
+                  ref={passwordInputRef}
                   style={styles.passwordInput}
                   placeholder="Password"
                   placeholderTextColor="#bdc3c7"
@@ -168,10 +185,13 @@ const Login = () => {
                   onChangeText={(text) => handleChange('password', text)}
                   autoCapitalize="none"
                   autoCorrect={false}
+                  returnKeyType="go"
+                  onSubmitEditing={handleSubmit}
                 />
                 <TouchableOpacity
                   style={styles.eyeButton}
                   onPress={() => setShowPassword(!showPassword)}
+                  activeOpacity={0.7}
                 >
                   <Text style={styles.eyeText}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
                 </TouchableOpacity>
@@ -182,6 +202,7 @@ const Login = () => {
               style={[styles.loginButton, loading && styles.loginButtonDisabled]} 
               onPress={handleSubmit} 
               disabled={loading}
+              activeOpacity={0.8}
             >
               <Text style={styles.loginButtonText}>
                 {loading ? 'Signing In...' : 'Sign In'}
@@ -199,6 +220,7 @@ const Login = () => {
                   ]
                 );
               }}
+              activeOpacity={0.7}
             >
               <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
             </TouchableOpacity>
