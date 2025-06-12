@@ -1,12 +1,23 @@
 const express = require("express");
 const router = express.Router();
+const bcrypt = require('bcrypt');
 
+// IMPORTANT: Make sure this middleware is applied
 router.use(express.json());
+router.use(express.urlencoded({ extended: true }));
 
 const prisma = require("../prisma");
 const fs = require('fs').promises;
 const verifyToken = require("../verify");
 
+// Debug middleware
+router.use((req, res, next) => {
+    console.log(`Profiles router - ${req.method} ${req.path}`);
+    console.log('Request body available:', !!req.body);
+    next();
+});
+
+// Your existing GET routes
 router.get("/", verifyToken, async (req, res, next) => {
     try {
         const searchTerm = req.query.search;
@@ -18,7 +29,6 @@ router.get("/", verifyToken, async (req, res, next) => {
                     OR: [
                         { firstName: { contains: searchTerm, mode: 'insensitive' } },
                         { lastName: { contains: searchTerm, mode: 'insensitive' } },
-                        // You might want to add more fields to search, like username
                     ],
                 },
             });
@@ -28,7 +38,7 @@ router.get("/", verifyToken, async (req, res, next) => {
         res.json(users);
     } catch (error) {
         console.error("Error fetching users:", error);
-        next(error); // Pass the error to the error handling middleware
+        next(error);
     }
 });
 
@@ -49,15 +59,24 @@ router.get("/:id", verifyToken, async (req, res, next) => {
     }
 });
 
+// DELETE ACCOUNT ROUTE - This should work with your frontend
 router.delete("/me", verifyToken, async (req, res, next) => {
     try {
-        const userId = req.userId; // This comes from the verifyToken middleware
+        const userId = req.userId;
         
-        // Optional: Add password confirmation for extra security
-        const { password } = req.body;
+        console.log('DELETE /me route hit!');
+        console.log('User ID from token:', userId);
+        console.log('Request body:', req.body);
         
+        // Safely handle req.body that might be undefined
+        let password = null;
+        if (req.body && typeof req.body === 'object') {
+            password = req.body.password;
+        }
+        
+        // Optional password verification (if provided)
         if (password) {
-            // Verify the user's password before deletion
+            console.log('Password provided, verifying...');
             const user = await prisma.user.findUnique({
                 where: { id: userId }
             });
@@ -66,7 +85,6 @@ router.delete("/me", verifyToken, async (req, res, next) => {
                 return res.status(404).json({ message: "User not found." });
             }
             
-            const bcrypt = require('bcrypt');
             const passwordMatch = await bcrypt.compare(password, user.password);
             
             if (!passwordMatch) {
@@ -74,14 +92,13 @@ router.delete("/me", verifyToken, async (req, res, next) => {
             }
         }
         
-        // Delete the user - Prisma will handle cascading deletes based on your schema
-        await prisma.user.delete({
+        console.log('About to delete user:', userId);
+        
+        // Delete the user - Prisma will handle cascading deletes
+        const deletedUser = await prisma.user.delete({
             where: { id: userId }
         });
         
-        // Remove user from WebSocket connections if they're connected
-        // You'll need to access connectedClients from your server.js
-        // For now, we'll just log this
         console.log(`User ${userId} account deleted successfully`);
         
         res.status(200).json({ 
@@ -93,10 +110,14 @@ router.delete("/me", verifyToken, async (req, res, next) => {
         
         // Handle specific Prisma errors
         if (error.code === 'P2025') {
-            return res.status(404).json({ message: "User not found." });
+            return res.status(404).json({ message: "User not found in database." });
         }
         
-        next(error);
+        // Return a proper error response
+        res.status(500).json({ 
+            message: "Failed to delete account. Please try again.",
+            error: error.message 
+        });
     }
 });
 
