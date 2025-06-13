@@ -153,7 +153,7 @@ const Register = () => {
               placeholderTextColor="#bdc3c7"
               value={formData.phoneNumber}
               onChangeText={(text) => handleChange('phoneNumber', text)}
-              keyboardType="phone-pad"
+              keyboardType="numeric"
             />
 
             <TextInput
