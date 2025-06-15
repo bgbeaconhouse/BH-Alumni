@@ -898,8 +898,8 @@ const styles = StyleSheet.create({
   // Optimized image styles
   imageContainer: {
     width: '100%',
-    height: 300,
-    borderRadius: 8,
+    aspectRatio: 1.25,
+    borderRadius: 12,
     marginBottom: 16,
     overflow: 'hidden',
     position: 'relative',
@@ -907,7 +907,7 @@ const styles = StyleSheet.create({
   postImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 8,
+  
   },
   thumbnailImage: {
     position: 'absolute',
