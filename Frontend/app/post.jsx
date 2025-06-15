@@ -53,7 +53,7 @@ const OptimizedImage = React.memo(({ imageUrl, style, onPress, showMultipleIndic
           cache: 'force-cache'
         }}
         style={[styles.postImage, { opacity: imageLoaded ? 1 : 0 }]}
-        resizeMode="cover"
+        resizeMode="contain"
         onLoad={() => setImageLoaded(true)}
         onError={(error) => {
           console.log('Image load error:', error);
@@ -898,7 +898,7 @@ const styles = StyleSheet.create({
   // Optimized image styles
   imageContainer: {
     width: '100%',
-    height: 400,
+    height: 300,
     borderRadius: 8,
     marginBottom: 16,
     overflow: 'hidden',
