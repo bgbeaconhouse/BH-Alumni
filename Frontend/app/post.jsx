@@ -743,39 +743,51 @@ const Post = () => {
       </TouchableOpacity>
 
       {/* Image Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={closeImageModal}
-      >
-        <View style={styles.modalContainer}>
+   <Modal
+  animationType="slide"
+  transparent={true}
+  visible={modalVisible}
+  onRequestClose={closeImageModal}
+>
+  <View style={styles.modalContainer}>
+    <ScrollView
+      style={styles.modalScrollView}
+      horizontal
+      pagingEnabled
+      showsHorizontalScrollIndicator={false}
+    >
+      {modalImages.map((image, index) => (
+        <View key={index} style={styles.modalPage}>
           <ScrollView
-            style={styles.modalScrollView}
-            horizontal
-            pagingEnabled
+            style={styles.zoomContainer}
+            contentContainerStyle={styles.zoomContentContainer}
+            showsVerticalScrollIndicator={false}
             showsHorizontalScrollIndicator={false}
+            maximumZoomScale={3}
+            minimumZoomScale={1}
+            bounces={false}
+            bouncesZoom={true}
+            centerContent={true}
           >
-            {modalImages.map((image, index) => (
-              <View key={index} style={styles.modalPage}>
-                <Image
-                  source={{ 
-                    uri: image.uri,
-                    cache: 'force-cache'
-                  }}
-                  style={styles.modalImage}
-                  resizeMode="contain"
-                  resizeMethod="resize"
-                  fadeDuration={200}
-                />
-              </View>
-            ))}
+            <Image
+              source={{ 
+                uri: image.uri,
+                cache: 'force-cache'
+              }}
+              style={styles.modalImage}
+              resizeMode="contain"
+              resizeMethod="resize"
+              fadeDuration={200}
+            />
           </ScrollView>
-          <TouchableOpacity style={styles.closeButton} onPress={closeImageModal}>
-            <Text style={styles.closeButtonText}>Close</Text>
-          </TouchableOpacity>
         </View>
-      </Modal>
+      ))}
+    </ScrollView>
+    <TouchableOpacity style={styles.closeButton} onPress={closeImageModal}>
+      <Text style={styles.closeButtonText}>Close</Text>
+    </TouchableOpacity>
+  </View>
+</Modal>
     </View>
   );
 };
@@ -1124,6 +1136,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.9)',
   },
+ 
+    zoomContainer: {
+    flex: 1,
+    width: screenWidth,
+  },
+   zoomContentContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: '100%',
+  },
   modalVideo: {
     width: screenWidth * 0.9,
     height: screenHeight * 0.6,
@@ -1152,9 +1175,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalImage: {
-    width: '90%',
-    height: '90%',
-    resizeMode: 'contain',
+ modalImage: {
+    width: screenWidth * 0.95,
+    height: screenHeight * 0.7,
   },
 });
