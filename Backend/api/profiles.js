@@ -121,4 +121,75 @@ router.delete("/me", verifyToken, async (req, res, next) => {
     }
 });
 
+router.delete("/:id", verifyToken, async (req, res, next) => {
+    try {
+        const userIdToDelete = parseInt(req.params.id);
+        const requestingUserId = req.userId;
+        
+        console.log('DELETE /:id route hit!');
+        console.log('Requesting user ID:', requestingUserId);
+        console.log('User ID to delete:', userIdToDelete);
+        
+        // Verify the requesting user is an admin
+        const requestingUser = await prisma.user.findUnique({
+            where: { id: requestingUserId }
+        });
+        
+        if (!requestingUser) {
+            return res.status(404).json({ message: "Requesting user not found." });
+        }
+        
+        if (!requestingUser.isAdmin) {
+            return res.status(403).json({ 
+                message: "Unauthorized. Only admins can delete user accounts." 
+            });
+        }
+        
+        // Prevent admin from deleting their own account via this route
+        if (requestingUserId === userIdToDelete) {
+            return res.status(400).json({ 
+                message: "Use the /me endpoint to delete your own account." 
+            });
+        }
+        
+        // Check if the user to delete exists
+        const userToDelete = await prisma.user.findUnique({
+            where: { id: userIdToDelete }
+        });
+        
+        if (!userToDelete) {
+            return res.status(404).json({ 
+                message: `User with ID ${userIdToDelete} not found.` 
+            });
+        }
+        
+        // Delete the user - Prisma will handle cascading deletes
+        const deletedUser = await prisma.user.delete({
+            where: { id: userIdToDelete }
+        });
+        
+        console.log(`Admin ${requestingUserId} deleted user ${userIdToDelete} successfully`);
+        
+        res.status(200).json({
+            message: `User ${deletedUser.username} (ID: ${userIdToDelete}) has been deleted successfully.`
+        });
+        
+    } catch (error) {
+        console.error("Error deleting user account:", error);
+        
+        // Handle specific Prisma errors
+        if (error.code === 'P2025') {
+            return res.status(404).json({ 
+                message: "User not found in database." 
+            });
+        }
+        
+        // Return a proper error response
+        res.status(500).json({
+            message: "Failed to delete user account. Please try again.",
+            error: error.message
+        });
+    }
+});
+
 module.exports = router;
